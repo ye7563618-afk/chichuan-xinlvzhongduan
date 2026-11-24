@@ -7,348 +7,365 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="迟川雷达" />
-  <meta name="theme-color" content="#070709" />
+  <meta name="theme-color" content="#09090c" />
   <link rel="apple-touch-icon" href="icon.jpg" />
   <link rel="icon" href="icon.jpg" />
   <title>CYRUS · 24H 伴侣共享终端 & 心率雷达</title>
   <style>
     :root {
-      --bg: #070709;
-      --card: rgba(18, 18, 24, 0.94);
-      --card-2: rgba(12, 12, 16, 0.96);
-      --line: rgba(212, 175, 114, 0.14);
-      --line-soft: rgba(255, 255, 255, 0.07);
-      --gold: #d4af72;
-      --gold-hi: #f0d7ac;
-      --rose: #e89ba8;
-      --crimson: #e8485c;
-      --text: #f3f3f6;
-      --muted: #9a9aa6;
-      --dim: #666673;
+      --app-h: 100vh;
+      --bg: #09090c;
+      --card: #121218;
+      --card-deep: #0d0d12;
+      --nav-bg: #0e0e13;
+      --line: rgba(255, 255, 255, 0.08);
+      --line-gold: rgba(214, 181, 124, 0.22);
+      --gold: #d6b57c;
+      --gold-hi: #f1d9ae;
+      --rose: #e6a69d;
+      --crimson: #e05865;
+      --text: #ece8e0;
+      --muted: #98949c;
+      --dim: #65626c;
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
     input, textarea, select { user-select: text; font-family: inherit; }
 
-    /* 彻底消除 iPhone 14 Pro 独立 PWA 底部黑边与橡皮筋回弹 */
+    /* Bug 1 彻底修复：严禁在 html/body/#app 使用 fixed inset:0 或 100dvh，全部跟随 JS 测算的 --app-h */
     html, body {
-      margin: 0; padding: 0; width: 100%; height: 100%;
-      background: var(--bg); color: var(--text);
+      margin: 0; padding: 0; width: 100%; height: var(--app-h, 100vh);
       overflow: hidden; overscroll-behavior: none;
+      background: var(--bg); color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
       -webkit-font-smoothing: antialiased;
     }
-    body { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
 
-    /* 桌面端展示精致暗黑终端框，移动端严格锁死四边零黑边 */
-    #app-shell {
-      position: relative; width: 410px; height: min(852px, 94vh);
-      border-radius: 44px; overflow: hidden; display: flex; flex-direction: column;
-      background: var(--bg);
-      border: 1px solid rgba(212, 175, 114, 0.2);
-      box-shadow: 0 28px 90px rgba(0, 0, 0, 0.92);
+    #app {
+      width: 100%; max-width: 480px; margin: 0 auto;
+      height: var(--app-h, 100vh);
+      display: flex; flex-direction: column; overflow: hidden;
+      background: var(--bg); position: relative;
       background-image:
-        radial-gradient(ellipse 84% 30% at 50% 0%, rgba(212, 175, 114, 0.08), transparent 68%),
-        radial-gradient(ellipse 72% 24% at 50% 100%, rgba(232, 72, 92, 0.05), transparent 72%);
+        radial-gradient(ellipse 84% 28% at 50% 0%, rgba(214, 181, 124, 0.08), transparent 68%),
+        radial-gradient(ellipse 72% 22% at 50% 100%, rgba(224, 88, 101, 0.05), transparent 72%);
     }
-    @media (max-width: 520px) {
-      #app-shell {
-        position: fixed; inset: 0; width: 100%; height: 100%; max-width: none;
-        border: none; border-radius: 0; box-shadow: none;
+    @media (min-width: 520px) {
+      #app {
+        border-left: 1px solid rgba(214, 181, 124, 0.14);
+        border-right: 1px solid rgba(214, 181, 124, 0.14);
+        box-shadow: 0 0 80px rgba(0, 0, 0, 0.85);
       }
     }
 
-    /* 顶部状态栏：精准避开 iPhone 14 Pro 灵动岛 */
-    #top-header {
-      flex: 0 0 auto; z-index: 30;
-      padding: calc(env(safe-area-inset-top, 12px) + 4px) 14px 10px;
-      background: rgba(10, 10, 14, 0.92);
+    /* 顶部常驻状态栏：安全避开灵动岛 */
+    header.top-bar {
+      flex-shrink: 0; z-index: 30;
+      padding: max(12px, env(safe-area-inset-top)) 14px 10px;
+      background: rgba(11, 11, 16, 0.94);
       backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
       border-bottom: 1px solid var(--line);
     }
     .hd-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .hd-brand { display: flex; align-items: center; gap: 6px; min-width: 0; }
-    .dot-wrap { position: relative; width: 8px; height: 8px; flex-shrink: 0; }
-    .dot-core, .dot-ping { position: absolute; inset: 0; border-radius: 50%; background: var(--gold); }
-    .dot-ping { opacity: 0.7; animation: ping 2s cubic-bezier(0,0,0.2,1) infinite; }
-    .brand-title { font-size: 12px; font-weight: 600; letter-spacing: 0.14em; color: #f6f6f9; white-space: nowrap; }
-    .pill-engine {
-      font-size: 9.5px; padding: 2px 7px; border-radius: 999px; white-space: nowrap;
-      background: rgba(212, 175, 114, 0.14); color: var(--gold-hi); border: 1px solid rgba(212, 175, 114, 0.3);
+    .status-dot { position: relative; width: 8px; height: 8px; flex-shrink: 0; }
+    .status-dot i, .status-dot b {
+      position: absolute; inset: 0; border-radius: 50%; background: var(--gold); display: block;
     }
-    .clock-line { font-size: 10.5px; color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
-    .hd-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .status-dot b { opacity: 0.72; animation: dotPing 2s cubic-bezier(0,0,0.2,1) infinite; }
+    .brand-name { font-size: 12px; font-weight: 600; letter-spacing: 0.13em; color: #f6f2ea; white-space: nowrap; }
+    .engine-pill {
+      font-size: 9.5px; padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+      background: rgba(214, 181, 124, 0.14); color: var(--gold-hi);
+      border: 1px solid rgba(214, 181, 124, 0.32);
+    }
+    .live-clock { font-size: 10.5px; color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
+    .hd-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
-    /* 通用按钮与卡片 */
+    /* 中间滚动容器 */
+    main.main-scroll {
+      flex: 1; min-height: 0; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 11px 14px 18px;
+      scrollbar-width: none;
+    }
+    main.main-scroll::-webkit-scrollbar { display: none; }
+
+    /* 底部四栏导航：自然撑满至小白条最底缘，彻底零黑边 */
+    nav.bottom-nav {
+      flex-shrink: 0; z-index: 30;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+      background: var(--nav-bg);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 10px 8px max(22px, env(safe-area-inset-bottom));
+    }
+    .nav-btn {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      padding: 4px 2px; border-radius: 12px; color: var(--dim); font-size: 10.5px; transition: color 0.18s;
+    }
+    .nav-btn.active { color: var(--gold-hi); }
+
+    /* 按钮与通用排版 */
     button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; padding: 0; }
     button:active { transform: scale(0.96); }
+    .hidden { display: none !important; }
+    .stack { display: flex; flex-direction: column; gap: 11px; }
+    .row-between { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .btn-pill {
       padding: 5px 10px; border-radius: 999px; font-size: 10.5px; font-weight: 500;
-      border: 1px solid rgba(212, 175, 114, 0.32); background: rgba(255, 255, 255, 0.04); color: var(--gold-hi);
+      border: 1px solid rgba(214, 181, 124, 0.34); background: rgba(255, 255, 255, 0.04); color: var(--gold-hi);
       transition: transform 0.12s, background 0.2s;
     }
-    .btn-icon {
+    .btn-sound {
       width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
-      border: 1px solid rgba(212, 175, 114, 0.34); background: rgba(212, 175, 114, 0.08); color: var(--gold);
+      border: 1px solid rgba(214, 181, 124, 0.36); background: rgba(214, 181, 124, 0.09); color: var(--gold);
     }
-    .btn-icon.locked { animation: goldBreath 1.8s ease-in-out infinite; background: rgba(212, 175, 114, 0.2); }
+    .btn-sound.awaiting { animation: goldBreath 1.8s ease-in-out infinite; background: rgba(214, 181, 124, 0.22); }
 
-    /* 快捷声效弹出层 */
-    #sound-pop {
+    /* 顶部快捷声效抽屉 */
+    .sound-drawer {
       margin-top: 10px; padding: 11px 12px; border-radius: 16px;
-      background: rgba(18, 18, 25, 0.98); border: 1px solid rgba(212, 175, 114, 0.32);
+      background: rgba(18, 18, 25, 0.98); border: 1px solid rgba(214, 181, 124, 0.32);
     }
-    .pop-head { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--gold-hi); margin-bottom: 8px; }
-    .mode-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .mode-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
     .mode-chip {
       padding: 6px 4px; border-radius: 10px; font-size: 10.5px; font-weight: 500; text-align: center;
-      border: 1px solid var(--line-soft); background: rgba(255,255,255,0.04); color: #d4d4dc;
+      border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: #d8d4cc;
     }
     .mode-chip.active { background: var(--gold); color: #09090c; border-color: var(--gold); font-weight: 600; }
     .vol-row { display: flex; align-items: center; gap: 8px; margin-top: 9px; font-size: 10.5px; color: var(--muted); }
     input[type="range"] { -webkit-appearance: none; appearance: none; flex: 1; height: 4px; border-radius: 999px; background: rgba(255,255,255,0.14); outline: none; }
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%;
-      background: var(--gold); border: 2px solid #070709;
+      background: var(--gold); border: 2px solid #09090c;
     }
 
-    /* 中间滚动容器 */
-    #main-scroll {
-      flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
-      padding: 10px 14px 16px; scrollbar-width: none;
-    }
-    #main-scroll::-webkit-scrollbar { display: none; }
-
-    /* 底部导航栏：直接延伸贴底到 iPhone 14 Pro 物理下缘，消除多余黑边 */
-    #bottom-nav {
-      flex: 0 0 auto; z-index: 30;
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
-      padding-top: 8px;
-      padding-left: 10px; padding-right: 10px;
-      padding-bottom: max(10px, calc(env(safe-area-inset-bottom, 10px) - 14px));
-      background: rgba(12, 12, 16, 0.94);
-      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-      border-top: 1px solid rgba(212, 175, 114, 0.14);
-    }
-    .nav-item {
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-      padding: 4px 2px; border-radius: 12px; color: var(--dim); font-size: 10.5px; transition: color 0.18s;
-    }
-    .nav-item.active { color: var(--gold-hi); }
-
-    /* 顶部悬浮轻提示 */
+    /* 顶部轻提示 Toast */
     #toast {
-      position: absolute; left: 14px; right: 14px; top: calc(env(safe-area-inset-top, 12px) + 58px); z-index: 60;
+      position: absolute; left: 14px; right: 14px; top: calc(max(12px, env(safe-area-inset-top)) + 58px); z-index: 60;
       padding: 10px 13px; border-radius: 16px; pointer-events: none;
-      background: rgba(20, 19, 25, 0.96); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(212, 175, 114, 0.42); box-shadow: 0 12px 32px rgba(0,0,0,0.65);
-      transform: translateY(-160%); opacity: 0; transition: transform 0.34s cubic-bezier(.22,1,.36,1), opacity 0.24s;
+      background: rgba(20, 19, 26, 0.97); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(214, 181, 124, 0.44); box-shadow: 0 12px 32px rgba(0,0,0,0.65);
+      transform: translateY(-170%); opacity: 0;
+      transition: transform 0.34s cubic-bezier(.22,1,.36,1), opacity 0.24s;
       display: flex; align-items: center; gap: 9px;
     }
     #toast.show { transform: translateY(0); opacity: 1; }
-    .toast-t { font-size: 11.5px; font-weight: 600; color: var(--gold-hi); }
-    .toast-s { font-size: 11px; color: #d4d4dc; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    /* 卡片与通用排版 */
-    .stack { display: flex; flex-direction: column; gap: 11px; }
-    .hidden { display: none !important; }
+    /* 卡片系统 */
     .card {
-      background: linear-gradient(160deg, var(--card), var(--card-2));
+      background: linear-gradient(160deg, var(--card), var(--card-deep));
       border: 1px solid var(--line); border-radius: 20px; padding: 13px;
     }
     .card-gold {
-      background: linear-gradient(155deg, rgba(34, 28, 20, 0.94), rgba(14, 13, 15, 0.97));
-      border: 1px solid rgba(212, 175, 114, 0.35); border-radius: 20px; padding: 13px;
+      background: linear-gradient(155deg, rgba(35, 28, 20, 0.94), rgba(14, 13, 16, 0.98));
+      border: 1px solid rgba(214, 181, 124, 0.36); border-radius: 20px; padding: 13px;
     }
-    .audio-banner {
+    .audio-unlock-bar {
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
-      padding: 9px 12px; border-radius: 15px; margin-bottom: 10px;
-      background: linear-gradient(135deg, rgba(38, 30, 20, 0.95), rgba(19, 17, 16, 0.96));
-      border: 1px solid rgba(212, 175, 114, 0.45);
+      padding: 9px 12px; border-radius: 16px; margin-bottom: 10px;
+      background: linear-gradient(135deg, rgba(39, 31, 21, 0.96), rgba(18, 16, 17, 0.97));
+      border: 1px solid rgba(214, 181, 124, 0.46);
       animation: goldBreath 2.1s ease-in-out infinite;
     }
-    .sec-title { font-size: 12px; font-weight: 600; color: #ececf2; }
+    .sec-title { font-size: 12.5px; font-weight: 600; color: #f4f0e8; }
     .sec-sub { font-size: 10.5px; color: var(--muted); }
-    .row-between { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .badge {
       display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px;
       font-size: 10px; font-weight: 500; white-space: nowrap;
     }
-    .b-gold { background: rgba(212, 175, 114, 0.16); color: var(--gold-hi); }
-    .b-rose { background: rgba(232, 155, 168, 0.2); color: #f7ccd3; }
-    .b-red  { background: rgba(232, 72, 92, 0.22); color: #ff98a5; }
+    .b-gold { background: rgba(214, 181, 124, 0.16); color: var(--gold-hi); }
+    .b-rose { background: rgba(230, 166, 157, 0.2); color: #f8d0ca; }
+    .b-red  { background: rgba(224, 88, 101, 0.22); color: #ff9fa8; }
     .b-dim  { background: rgba(255, 255, 255, 0.06); color: var(--muted); }
 
-    /* ECG 卡片 */
+    /* LIVE ECG 心电图卡片 */
     #ecg-card { transition: border-color 0.3s, box-shadow 0.3s; }
-    #ecg-card.warm { border-color: rgba(232, 155, 168, 0.46); box-shadow: 0 0 22px rgba(232, 155, 168, 0.14); }
-    #ecg-card.panic { border-color: rgba(232, 72, 92, 0.62); animation: panicGlow 1.15s ease-in-out infinite; }
+    #ecg-card.warm { border-color: rgba(230, 166, 157, 0.45); box-shadow: 0 0 22px rgba(230, 166, 157, 0.14); }
+    #ecg-card.panic { border-color: rgba(224, 88, 101, 0.65); animation: panicGlow 1.15s ease-in-out infinite; }
     .ecg-grid { display: grid; grid-template-columns: 1fr 94px; gap: 10px; align-items: center; margin-top: 9px; }
     .ecg-box {
       position: relative; height: 86px; border-radius: 14px; overflow: hidden;
-      background: #050508; border: 1px solid rgba(255, 255, 255, 0.06);
+      background: #060609; border: 1px solid rgba(255, 255, 255, 0.06);
     }
     .ecg-box canvas { width: 100%; height: 100%; display: block; }
-    .ecg-lead { position: absolute; left: 8px; bottom: 5px; font-size: 9px; color: #676775; letter-spacing: 0.08em; }
+    .ecg-lead { position: absolute; left: 8px; bottom: 5px; font-size: 9px; color: #676572; letter-spacing: 0.08em; }
     .bpm-col { display: flex; flex-direction: column; align-items: flex-end; }
-    #bpm-num { font-size: 38px; font-weight: 300; line-height: 1; font-variant-numeric: tabular-nums; color: var(--gold); transition: transform 0.13s, text-shadow 0.15s, color 0.25s; }
-    #bpm-num.thump { transform: scale(1.05); text-shadow: 0 0 18px currentColor; }
-    #heart-glyph { display: inline-flex; color: var(--gold); transition: transform 0.13s, filter 0.15s; }
-    #heart-glyph.thump { transform: scale(1.34); filter: drop-shadow(0 0 8px currentColor); }
-    .bpm-cap { font-size: 9.5px; color: var(--dim); letter-spacing: 0.12em; margin-top: 4px; }
-    .bpm-base { font-size: 10.5px; color: var(--muted); margin-top: 3px; font-variant-numeric: tabular-nums; }
-    .metrics-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+    #bpm-num {
+      font-size: 38px; font-weight: 300; line-height: 1; font-variant-numeric: tabular-nums;
+      color: var(--gold); transition: transform 0.12s, text-shadow 0.14s, color 0.25s;
+    }
+    #bpm-num.thump { transform: scale(1.06); text-shadow: 0 0 18px currentColor; }
+    #heart-icon { display: inline-flex; color: var(--gold); transition: transform 0.12s, filter 0.14s; }
+    #heart-icon.thump { transform: scale(1.34); filter: drop-shadow(0 0 8px currentColor); }
+    .metrics-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
     .m-tile { background: rgba(255,255,255,0.025); border-radius: 11px; padding: 7px 8px; min-width: 0; }
     .m-k { font-size: 9.5px; color: var(--dim); }
-    .m-v { font-size: 11px; font-weight: 500; color: #ececf2; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+    .m-v { font-size: 11px; font-weight: 500; color: var(--text); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 
-    /* 环境微收音与雷达 */
+    /* 环境音与战术雷达（Bug 2 彻底修复：纯 CSS 永久 360° 旋转，DOM 永不重置） */
     .amb-box {
       margin-top: 9px; padding: 9px 11px; border-radius: 13px;
-      background: rgba(5, 5, 8, 0.72); border: 1px solid var(--line-soft);
-      font-size: 11.5px; line-height: 1.55; color: #d6d6df;
+      background: rgba(6, 6, 10, 0.76); border: 1px solid var(--line);
+      font-size: 11.5px; line-height: 1.58; color: #d8d4cc;
     }
     .radar-wrap { display: flex; justify-content: center; padding: 4px 0 6px; }
-    .radar-sweep { transform-origin: 105px 105px; animation: spin 4.4s linear infinite; }
-    .ping-ring { transform-box: fill-box; transform-origin: center; animation: ping 2s ease-out infinite; }
+    .radar-sweep {
+      transform-origin: 105px 105px;
+      animation: radarSpin 4.2s linear infinite;
+      will-change: transform;
+    }
+    .ping-ring { transform-box: fill-box; transform-origin: center; animation: dotPing 2s ease-out infinite; }
     .inspector {
-      padding: 10px 11px; border-radius: 14px; background: rgba(7, 7, 11, 0.85);
-      border: 1px solid var(--line-soft); font-size: 11.5px; line-height: 1.55; color: #d6d6df;
+      padding: 10px 11px; border-radius: 14px; background: rgba(7, 7, 11, 0.86);
+      border: 1px solid var(--line); font-size: 11.5px; line-height: 1.56; color: #d8d4cc;
     }
 
     /* 远程查岗控制台 */
     .cmd-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; margin-top: 9px; }
     .cmd-btn {
       text-align: left; padding: 9px 11px; border-radius: 14px;
-      border: 1px solid var(--line-soft); background: rgba(255,255,255,0.035);
+      border: 1px solid var(--line); background: rgba(255,255,255,0.035);
     }
-    .cmd-btn.hot { background: rgba(34, 17, 24, 0.88); border-color: rgba(232, 72, 92, 0.34); }
-    .cmd-btn.warm { background: rgba(36, 23, 27, 0.88); border-color: rgba(232, 155, 168, 0.34); }
-    .cmd-btn.gold { background: rgba(31, 26, 18, 0.9); border-color: rgba(212, 175, 114, 0.34); }
-    .cmd-t { font-size: 12px; font-weight: 500; color: #f4f4f8; }
+    .cmd-btn.hot { background: rgba(36, 17, 23, 0.9); border-color: rgba(224, 88, 101, 0.34); }
+    .cmd-btn.warm { background: rgba(36, 24, 26, 0.9); border-color: rgba(230, 166, 157, 0.36); }
+    .cmd-btn.gold { background: rgba(32, 26, 18, 0.92); border-color: rgba(214, 181, 124, 0.36); }
+    .cmd-t { font-size: 12px; font-weight: 500; color: #f6f2ea; }
     .cmd-s { font-size: 10px; color: var(--muted); margin-top: 2px; }
     .cmd-wide {
       width: 100%; margin-top: 7px; padding: 10px 12px; border-radius: 14px;
       display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left;
-      background: linear-gradient(135deg, rgba(42, 16, 25, 0.94), rgba(24, 13, 18, 0.96));
-      border: 1px solid rgba(232, 72, 92, 0.45);
+      background: linear-gradient(135deg, rgba(42, 16, 24, 0.95), rgba(23, 13, 18, 0.97));
+      border: 1px solid rgba(224, 88, 101, 0.44);
     }
     .msg-form { display: flex; gap: 7px; margin-top: 9px; }
     .text-inp {
       flex: 1; min-width: 0; padding: 9px 13px; border-radius: 999px; font-size: 12px;
-      background: #07070b; border: 1px solid rgba(255, 255, 255, 0.11); color: #f4f4f6; outline: none;
+      background: #07070b; border: 1px solid rgba(255, 255, 255, 0.12); color: #f5f2eb; outline: none;
     }
-    .text-inp:focus { border-color: rgba(212, 175, 114, 0.58); }
+    .text-inp:focus { border-color: rgba(214, 181, 124, 0.6); }
     .btn-send {
       padding: 0 15px; border-radius: 999px; background: var(--gold); color: #09090c;
       font-size: 12px; font-weight: 600; flex-shrink: 0;
     }
 
-    /* 腕表回复与语音条 */
+    /* 腕表回复与永久停留语音条（Bug 3 修复样式） */
     .avatar-sm {
       width: 24px; height: 24px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
-      font-size: 11px; background: #231d14; border: 1px solid rgba(212, 175, 114, 0.4); color: var(--gold-hi);
+      font-size: 11px; background: #241e15; border: 1px solid rgba(214, 181, 124, 0.42); color: var(--gold-hi);
     }
     .user-quote {
       margin-top: 7px; padding: 6px 10px; border-radius: 10px; font-size: 11px; color: var(--muted);
-      background: rgba(255,255,255,0.035); border: 1px solid var(--line-soft);
+      background: rgba(255,255,255,0.035); border: 1px solid var(--line);
     }
-    .reply-txt { margin-top: 7px; font-size: 12px; line-height: 1.6; color: #ededf3; }
+    .reply-txt { margin-top: 7px; font-size: 12px; line-height: 1.6; color: #f0ece4; }
     .voice-btn {
-      margin-top: 8px; width: 100%; max-width: 236px; padding: 8px 12px; border-radius: 13px;
-      background: linear-gradient(135deg, #251f16, #141312); border: 1px solid rgba(212, 175, 114, 0.4);
+      margin-top: 8px; width: 100%; max-width: 242px; padding: 8px 12px; border-radius: 13px;
+      background: linear-gradient(135deg, #261f16, #141312); border: 1px solid rgba(214, 181, 124, 0.42);
       display: flex; align-items: center; justify-content: space-between; color: var(--gold-hi); font-size: 11px;
     }
     .waves { display: inline-flex; align-items: center; gap: 3px; height: 14px; }
     .waves i { display: block; width: 2.5px; border-radius: 99px; background: currentColor; }
     .waves i:nth-child(1){height:5px} .waves i:nth-child(2){height:12px} .waves i:nth-child(3){height:7px} .waves i:nth-child(4){height:14px} .waves i:nth-child(5){height:9px}
-    .voice-btn.playing .waves i { animation: wave 0.58s ease-in-out infinite; }
+    .voice-btn.playing .waves i { animation: wave 0.56s ease-in-out infinite; }
     .voice-btn.playing .waves i:nth-child(2){animation-delay:.1s} .voice-btn.playing .waves i:nth-child(3){animation-delay:.2s}
     .voice-btn.playing .waves i:nth-child(4){animation-delay:.3s} .voice-btn.playing .waves i:nth-child(5){animation-delay:.4s}
-    .voice-txt {
-      margin-top: 6px; padding: 8px 10px; border-radius: 11px; font-size: 11.5px; line-height: 1.55; color: #d5d5df;
-      background: rgba(0, 0, 0, 0.44); border: 1px solid var(--line-soft);
+    .voice-box {
+      margin-top: 6px; padding: 8px 10px; border-radius: 12px;
+      background: rgba(5, 5, 9, 0.65); border: 1px solid rgba(214, 181, 124, 0.22);
+      font-size: 11.5px; line-height: 1.6; color: #ddd9d0;
+    }
+    .voice-box-hd {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;
+      font-size: 9.5px; color: var(--gold);
+    }
+    .voice-close-btn {
+      font-size: 10px; color: var(--muted); padding: 1px 7px; border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
     }
 
-    /* 今日轨迹列表 */
+    /* 今日轨迹卡片 */
     .tl-item {
-      border-radius: 18px; padding: 12px 13px; border: 1px solid var(--line-soft);
-      background: linear-gradient(160deg, rgba(18,18,24,0.92), rgba(11,11,15,0.96));
+      border-radius: 18px; padding: 12px 13px; border: 1px solid var(--line);
+      background: linear-gradient(160deg, var(--card), var(--card-deep));
     }
-    .tl-item.active { border-color: rgba(212, 175, 114, 0.52); background: linear-gradient(155deg, rgba(33,27,20,0.9), rgba(14,13,16,0.96)); }
-    .tl-item.locked { opacity: 0.58; background: rgba(11, 11, 15, 0.72); }
+    .tl-item.active {
+      border-color: rgba(214, 181, 124, 0.52);
+      background: linear-gradient(155deg, rgba(34,28,20,0.92), rgba(14,13,16,0.97));
+    }
+    .tl-item.locked { opacity: 0.6; background: rgba(12, 12, 17, 0.74); }
 
-    /* 柱状图与彩蛋图鉴 */
+    /* 心率档案与彩蛋图鉴 */
     .bar-track { width: 100%; height: 7px; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; margin-top: 5px; }
     .bar-fill { height: 100%; border-radius: 999px; transition: width 0.5s ease; }
     .egg-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; margin-top: 9px; }
-    .egg-card { padding: 9px 10px; border-radius: 14px; border: 1px solid var(--line-soft); background: rgba(255,255,255,0.02); }
-    .egg-card.ok { background: rgba(31, 25, 18, 0.92); border-color: rgba(212, 175, 114, 0.42); }
+    .egg-card { padding: 9px 10px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,0.02); }
+    .egg-card.ok { background: rgba(32, 26, 18, 0.92); border-color: rgba(214, 181, 124, 0.44); }
     .spike-row {
       display: flex; align-items: center; justify-content: space-between; gap: 10px;
-      padding: 8px 11px; border-radius: 13px; background: rgba(255,255,255,0.03); border: 1px solid var(--line-soft);
+      padding: 8px 11px; border-radius: 13px; background: rgba(255,255,255,0.03); border: 1px solid var(--line);
     }
 
     /* 设置页表单控件 */
-    .field-lbl { display: block; font-size: 11px; color: #cfcfd9; margin-bottom: 5px; }
+    .field-lbl { display: block; font-size: 11px; color: #d5d0c8; margin-bottom: 5px; }
     .field-inp {
       width: 100%; padding: 9px 11px; border-radius: 12px; font-size: 12px;
-      background: rgba(5, 5, 8, 0.78); border: 1px solid rgba(255,255,255,0.12); color: #f4f4f6; outline: none;
+      background: rgba(6, 6, 10, 0.8); border: 1px solid rgba(255,255,255,0.12); color: #f5f2eb; outline: none;
     }
-    .field-inp:focus { border-color: rgba(212, 175, 114, 0.55); }
+    .field-inp:focus { border-color: rgba(214, 181, 124, 0.58); }
     .switch { width: 44px; height: 24px; border-radius: 999px; background: rgba(255,255,255,0.16); position: relative; transition: background 0.2s; flex-shrink: 0; }
     .switch.on { background: var(--gold); }
     .switch i { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #09090c; transition: transform 0.2s; }
     .switch.on i { transform: translateX(20px); }
     .btn-block {
       width: 100%; padding: 10px 12px; border-radius: 13px; font-size: 12px; font-weight: 500; text-align: center;
-      border: 1px solid var(--line-soft); background: rgba(255,255,255,0.06); color: #f2f2f6;
+      border: 1px solid var(--line); background: rgba(255,255,255,0.06); color: #f4f0e8;
     }
     .btn-block.gold { background: var(--gold); color: #09090c; border-color: var(--gold); font-weight: 600; }
-    .btn-block.soft-gold { background: rgba(33, 27, 19, 0.92); border-color: rgba(212, 175, 114, 0.42); color: var(--gold-hi); }
-    .btn-block.danger { background: rgba(31, 16, 21, 0.92); border-color: rgba(232, 72, 92, 0.36); color: #ff9ba8; }
+    .btn-block.soft-gold { background: rgba(34, 28, 20, 0.92); border-color: rgba(214, 181, 124, 0.44); color: var(--gold-hi); }
+    .btn-block.danger { background: rgba(32, 16, 21, 0.92); border-color: rgba(224, 88, 101, 0.38); color: #ffa0a9; }
 
-    /* 动画 */
-    @keyframes ping { 0% { transform: scale(0.9); opacity: 0.75; } 100% { transform: scale(2.15); opacity: 0; } }
-    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    /* 关键帧动画 */
+    @keyframes radarSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes dotPing { 0% { transform: scale(0.9); opacity: 0.75; } 100% { transform: scale(2.15); opacity: 0; } }
     @keyframes wave { 0%,100% { transform: scaleY(0.35); opacity: 0.55; } 50% { transform: scaleY(1.28); opacity: 1; } }
-    @keyframes goldBreath { 0%,100% { box-shadow: 0 0 0 0 rgba(212,175,114,0.42); } 50% { box-shadow: 0 0 0 5px rgba(212,175,114,0); } }
-    @keyframes panicGlow { 0%,100% { box-shadow: 0 0 0 1px rgba(232,72,92,0.34), 0 0 20px rgba(232,72,92,0.14); } 50% { box-shadow: 0 0 0 1px rgba(232,72,92,0.72), 0 0 32px rgba(232,72,92,0.32); } }
+    @keyframes goldBreath { 0%,100% { box-shadow: 0 0 0 0 rgba(214,181,124,0.42); } 50% { box-shadow: 0 0 0 5px rgba(214,181,124,0); } }
+    @keyframes panicGlow { 0%,100% { box-shadow: 0 0 0 1px rgba(224,88,101,0.34), 0 0 20px rgba(224,88,101,0.14); } 50% { box-shadow: 0 0 0 1px rgba(224,88,101,0.74), 0 0 32px rgba(224,88,101,0.34); } }
     @keyframes buzz { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
     .buzz { animation: buzz 0.24s ease; }
   </style>
 </head>
 <body>
-  <div id="app-shell">
+  <div id="app">
 
-    <!-- 1. 顶部常驻加密状态栏 -->
-    <header id="top-header">
+    <!-- 1. 顶部常驻状态栏 -->
+    <header class="top-bar">
       <div class="hd-row">
         <div style="min-width:0">
           <div class="hd-brand">
-            <span class="dot-wrap"><span id="dot-ping" class="dot-ping"></span><span id="dot-core" class="dot-core"></span></span>
-            <span class="brand-title">CYRUS · 伴侣终端</span>
-            <span id="engine-pill" class="pill-engine">本地七天实时</span>
+            <span class="status-dot"><b id="dot-ping"></b><i id="dot-core"></i></span>
+            <span class="brand-name">CYRUS · 伴侣终端</span>
+            <span id="engine-badge" class="engine-pill">本地七天实时</span>
           </div>
-          <div id="clock-line" class="clock-line">正在同步现实时间…</div>
+          <div id="live-clock" class="live-clock">正在同步现实时间…</div>
         </div>
-        <div class="hd-actions">
+        <div class="hd-right">
           <button id="mode-btn" type="button" class="btn-pill">实时同步</button>
-          <button id="sound-btn" type="button" class="btn-icon locked" aria-label="心跳声效"></button>
+          <button id="sound-btn" type="button" class="btn-sound awaiting" aria-label="心跳声效设置"></button>
         </div>
       </div>
 
-      <!-- 快捷声效模式弹出面板 -->
-      <div id="sound-pop" class="hidden">
-        <div class="pop-head">
+      <!-- 快捷声效抽屉 -->
+      <div id="sound-drawer" class="sound-drawer hidden">
+        <div class="row-between" style="font-size:11px;color:var(--gold-hi)">
           <span>拟真心跳声效模式</span>
-          <button id="pop-close" type="button" style="color:var(--muted);font-size:11px">收起 ✕</button>
+          <button id="drawer-close" type="button" style="color:var(--muted);font-size:11px">收起 ✕</button>
         </div>
-        <div id="pop-modes" class="mode-grid-4"></div>
+        <div id="drawer-modes" class="mode-grid-4"></div>
         <div class="vol-row">
           <span>音量</span>
-          <input id="pop-vol" type="range" min="0" max="100" value="80" />
-          <span id="pop-vol-txt" style="color:var(--gold-hi);width:32px;text-align:right;font-variant-numeric:tabular-nums">80%</span>
+          <input id="drawer-vol" type="range" min="0" max="100" value="80" />
+          <span id="drawer-vol-txt" style="color:var(--gold-hi);width:32px;text-align:right;font-variant-numeric:tabular-nums">80%</span>
         </div>
       </div>
     </header>
@@ -357,24 +374,24 @@
     <div id="toast">
       <span style="color:var(--gold);font-size:12px">✦</span>
       <div style="min-width:0;flex:1">
-        <div id="toast-t" class="toast-t"></div>
-        <div id="toast-s" class="toast-s"></div>
+        <div id="toast-t" style="font-size:11.5px;font-weight:600;color:var(--gold-hi)"></div>
+        <div id="toast-s" style="font-size:11px;color:#d8d4cc;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       </div>
     </div>
 
-    <!-- 2. 中间可滚动主内容区 -->
-    <main id="main-scroll">
+    <!-- 2. 中间独立滚动主区域 -->
+    <main id="main-scroll" class="main-scroll">
 
-      <!-- 首次音频解锁提示条（解锁后或关闭后隐藏） -->
-      <div id="audio-banner" class="audio-banner">
-        <div id="audio-unlock-hit" style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;cursor:pointer">
-          <span style="color:var(--gold);display:inline-flex" id="banner-ic"></span>
+      <!-- 首次声音解锁轻提示条 -->
+      <div id="audio-banner" class="audio-unlock-bar">
+        <div id="audio-banner-hit" style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;cursor:pointer">
+          <span id="audio-banner-ic" style="color:var(--gold);display:inline-flex"></span>
           <div style="min-width:0">
-            <div style="font-size:11.5px;font-weight:600;color:var(--gold-hi)">点击开启贴耳心跳声（实时同步心电图）</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:1px">平时沉稳 62 bpm · 被你查岗立刻急促跳动</div>
+            <div style="font-size:11.5px;font-weight:600;color:var(--gold-hi)">轻触开启拟真心跳声效 · 音画同步</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:1px">平时沉稳 62 bpm · 被你查岗即刻加速变重</div>
           </div>
         </div>
-        <button id="banner-close" type="button" style="font-size:11px;color:var(--muted);padding:4px 6px">✕</button>
+        <button id="audio-banner-close" type="button" style="font-size:11px;color:var(--muted);padding:4px 6px">✕</button>
       </div>
 
       <!-- 离线补发同步提醒条 -->
@@ -382,7 +399,7 @@
         <div class="row-between">
           <div style="min-width:0">
             <div id="catchup-t" style="font-size:11.5px;font-weight:600;color:var(--gold-hi)">离线期间同步了新轨迹</div>
-            <div id="catchup-s" style="font-size:10.5px;color:#d6d6df;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+            <div id="catchup-s" style="font-size:10.5px;color:#dcd7ce;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
           </div>
           <button id="catchup-ok" type="button" class="btn-pill" style="padding:4px 9px">知道了</button>
         </div>
@@ -391,15 +408,15 @@
       <!-- ==================== TAB 1: 实时雷达 ==================== -->
       <section id="tab-radar" class="stack">
 
-        <!-- 1.1 LIVE ECG 实时心电图 -->
+        <!-- 1.1 LIVE ECG 医疗级心电图卡片 -->
         <div id="ecg-card" class="card">
           <div class="row-between">
             <div style="display:flex;align-items:center;gap:6px;min-width:0">
-              <span id="heart-glyph"></span>
+              <span id="heart-icon"></span>
               <span style="font-size:11px;letter-spacing:0.12em;color:var(--muted);font-weight:600">LIVE ECG</span>
               <span id="state-badge" class="badge b-gold">绝对冷静</span>
             </div>
-            <span id="ecg-loc-tag" style="font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:148px">同步中</span>
+            <span id="ecg-loc-tag" style="font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:152px">同步中</span>
           </div>
 
           <div class="ecg-grid">
@@ -409,8 +426,8 @@
             </div>
             <div class="bpm-col">
               <span id="bpm-num">62</span>
-              <span class="bpm-cap">BPM · 心率</span>
-              <span id="bpm-base" class="bpm-base">基线 62</span>
+              <span style="font-size:9.5px;color:var(--dim);letter-spacing:0.12em;margin-top:4px">BPM · 心率</span>
+              <span id="bpm-base" style="font-size:10.5px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums">基线 62</span>
             </div>
           </div>
 
@@ -430,10 +447,10 @@
           </div>
         </div>
 
-        <!-- 1.2 当前定位与环境微收音卡片 -->
+        <!-- 1.2 当前定位与环境微收音 -->
         <div id="loc-card" class="card"></div>
 
-        <!-- 1.3 战术近场雷达卡片 -->
+        <!-- 1.3 战术近场雷达（静态骨架 + 永不销毁的 360° 扫描层 + 动态 #radar-blips） -->
         <div class="card">
           <div class="row-between">
             <div>
@@ -443,7 +460,28 @@
             <span id="radar-cnt" class="badge b-dim">0 近场目标</span>
           </div>
           <div class="radar-wrap">
-            <svg id="radar-svg" viewBox="0 0 210 210" width="206" height="206" style="max-width:100%;overflow:visible"></svg>
+            <svg id="radar-svg" viewBox="0 0 210 210" width="208" height="208" style="max-width:100%;overflow:visible">
+              <defs>
+                <radialGradient id="radarGrad" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#d6b57c" stop-opacity="0.26" />
+                  <stop offset="100%" stop-color="#d6b57c" stop-opacity="0.01" />
+                </radialGradient>
+              </defs>
+              <circle cx="105" cy="105" r="94" fill="#07070b" stroke="rgba(214,181,124,0.16)" />
+              <circle cx="105" cy="105" r="63" fill="none" stroke="rgba(255,255,255,0.06)" stroke-dasharray="3 4" />
+              <circle cx="105" cy="105" r="32" fill="none" stroke="rgba(214,181,124,0.2)" />
+              <line x1="11" y1="105" x2="199" y2="105" stroke="rgba(255,255,255,0.045)" />
+              <line x1="105" y1="11" x2="105" y2="199" stroke="rgba(255,255,255,0.045)" />
+              <!-- 静态永久 360° 旋转扫描层：JS 绝不销毁或覆写此节点 -->
+              <g class="radar-sweep">
+                <path d="M105 105 L105 11 A94 94 0 0 1 174 40 Z" fill="url(#radarGrad)" />
+                <line x1="105" y1="105" x2="105" y2="11" stroke="rgba(214,181,124,0.62)" stroke-width="1.3" />
+              </g>
+              <circle cx="105" cy="105" r="15" fill="#171410" stroke="rgba(214,181,124,0.62)" stroke-width="1.2" />
+              <text x="105" y="108" text-anchor="middle" fill="#f1d9ae" font-size="8" font-weight="600" letter-spacing="0.8">CYRUS</text>
+              <!-- 仅更新此光点层，绝不触碰扫描指针 -->
+              <g id="radar-blips"></g>
+            </svg>
           </div>
           <div id="blip-detail" class="inspector"></div>
         </div>
@@ -452,20 +490,20 @@
         <div class="card">
           <div class="row-between">
             <span class="sec-title">远程查岗控制台</span>
-            <span id="cmd-hint" style="font-size:10px;color:var(--gold)">触发即时牵动心跳与声效</span>
+            <span style="font-size:10px;color:var(--gold)">实时牵动心电图与拟真心跳声</span>
           </div>
           <div class="cmd-grid">
             <button type="button" data-cmd="cold" class="cmd-btn hot">
-              <div class="cmd-t" style="color:#fecdd3">冷淡查岗</div>
+              <div class="cmd-t" style="color:#ffd0d5">冷淡查岗</div>
               <div class="cmd-s">忙你的，不用回我</div>
             </button>
-            <button type="button" data-cmd="baba" class="cmd-btn warm">
-              <div class="cmd-t" style="color:#f8ccd4">软声叫“爸爸”</div>
-              <div class="cmd-s">击穿高冷 · 温热加速</div>
-            </button>
             <button type="button" data-cmd="jealous" class="cmd-btn hot">
-              <div class="cmd-t" style="color:#fecdd3">吃醋盘问</div>
+              <div class="cmd-t" style="color:#ffd0d5">吃醋盘问</div>
               <div class="cmd-s">核验身旁异性边界</div>
+            </button>
+            <button type="button" data-cmd="baba" class="cmd-btn warm">
+              <div class="cmd-t" style="color:#f8d0ca">软声叫“爸爸”</div>
+              <div class="cmd-s">击穿高冷 · 暖粉加速</div>
             </button>
             <button type="button" data-cmd="report" class="cmd-btn gold">
               <div class="cmd-t" style="color:var(--gold-hi)">要求实时报备</div>
@@ -474,8 +512,8 @@
           </div>
           <button type="button" data-cmd="offline" class="cmd-wide">
             <div>
-              <div class="cmd-t" style="color:#fecdd3">模拟失联 / 离线</div>
-              <div class="cmd-s" style="color:rgba(254,205,211,0.72)">触发 INTJ 脆弱核心 · 132+ bpm 急促心跳与坦白</div>
+              <div class="cmd-t" style="color:#ffd0d5">模拟失联</div>
+              <div class="cmd-s" style="color:rgba(255,208,213,0.72)">触发 INTJ 脆弱核心 · 134+ bpm 急促心跳与深情坦白</div>
             </div>
             <span class="badge b-red">高能</span>
           </button>
@@ -486,11 +524,11 @@
           </form>
         </div>
 
-        <!-- 1.5 实时回应流 -->
+        <!-- 1.5 迟川腕表实时回应流 -->
         <div class="stack" style="gap:8px">
           <div class="row-between" style="padding:0 2px">
             <span class="sec-title">迟川腕表实时回应</span>
-            <span class="sec-sub">轻触语音条展开逐字转写</span>
+            <span class="sec-sub">点击语音条永久展开转写 · 可主动收起</span>
           </div>
           <div id="live-feed" class="stack" style="gap:9px"></div>
         </div>
@@ -502,11 +540,12 @@
           <div class="row-between">
             <div style="min-width:0">
               <div style="font-size:10px;letter-spacing:0.16em;color:var(--gold)">24H LIVE SCHEDULE</div>
-              <div id="tl-theme" style="font-size:13.5px;font-weight:600;color:#f6f6f9;margin-top:3px">今日主题加载中</div>
+              <div id="tl-theme" style="font-size:13.5px;font-weight:600;color:#f6f2ea;margin-top:3px">今日主题加载中</div>
             </div>
             <button id="tl-mode-btn" type="button" class="btn-pill">实时同步</button>
           </div>
-          <div id="tl-sub" style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">严格跟随现实手机时钟逐段解锁，未到钟点自动隐藏防剧透。</div>
+          <div id="tl-sub" style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">严格跟随现实时间逐段解锁；未到钟点自动锁定待机。</div>
+          <div id="tl-cross" class="amb-box hidden" style="border-color:rgba(214,181,124,0.34);color:var(--gold-hi)"></div>
         </div>
         <div id="tl-list" class="stack" style="gap:9px"></div>
       </section>
@@ -527,18 +566,20 @@
         <div class="card">
           <div class="row-between">
             <div>
-              <div class="sec-title" style="color:var(--gold-hi)">体征隐藏彩蛋图鉴</div>
-              <div class="sec-sub" style="margin-top:2px">开着声音逗他飙到 120+ bpm 解锁「耳畔失速」</div>
+              <div class="sec-title" style="color:var(--gold-hi)">体征隐藏彩蛋（8 项）</div>
+              <div class="sec-sub" style="margin-top:2px">开启心跳声将迟川逗至 120+ bpm 解锁「耳畔失速」</div>
             </div>
             <span id="egg-prog-txt" style="font-size:12px;font-weight:600;color:var(--gold);font-variant-numeric:tabular-nums">0 / 8</span>
           </div>
-          <div class="bar-track" style="margin-top:8px"><div id="egg-prog-bar" class="bar-fill" style="width:0%;background:linear-gradient(90deg,var(--gold),var(--crimson))"></div></div>
+          <div class="bar-track" style="margin-top:8px">
+            <div id="egg-prog-bar" class="bar-fill" style="width:0%;background:linear-gradient(90deg,var(--gold),var(--crimson))"></div>
+          </div>
           <div id="egg-grid" class="egg-grid"></div>
         </div>
 
         <div class="card">
           <div class="row-between" style="margin-bottom:9px">
-            <span class="sec-title">实时心跳波动日志</span>
+            <span class="sec-title">今日心跳触发日志</span>
             <span id="spike-cnt" class="sec-sub">0 条</span>
           </div>
           <div id="spike-list" class="stack" style="gap:7px"></div>
@@ -555,19 +596,19 @@
 
       <!-- ==================== TAB 4: 终端设置 ==================== -->
       <section id="tab-settings" class="stack hidden">
-        <!-- 4.1 心跳声效控制台 -->
+        <!-- 4.1 拟真心跳声效引擎 -->
         <div class="card-gold">
           <div class="row-between">
             <div>
-              <div class="sec-title" style="color:var(--gold-hi)">心跳声效控制台</div>
-              <div class="sec-sub" style="margin-top:2px">Web Audio 实时合成 · 与心电图 R 波同帧同步</div>
+              <div class="sec-title" style="color:var(--gold-hi)">拟真心跳声效引擎</div>
+              <div class="sec-sub" style="margin-top:2px">Web Audio 实时合成 · 与 LIVE ECG 波峰同帧同步</div>
             </div>
             <span id="set-audio-badge" class="badge b-gold">贴耳心跳</span>
           </div>
           <div id="set-modes" class="cmd-grid" style="margin-top:10px"></div>
           <div class="amb-box" style="margin-top:10px">
             <div class="row-between" style="margin-bottom:6px">
-              <span style="font-size:11px;color:#d6d6df">心跳与微音效主音量</span>
+              <span style="font-size:11px;color:#ddd9d0">心跳与微音效主音量</span>
               <span id="set-vol-txt" style="font-size:11px;color:var(--gold-hi);font-weight:600;font-variant-numeric:tabular-nums">80%</span>
             </div>
             <input id="set-vol" type="range" min="0" max="100" value="80" style="width:100%" />
@@ -577,7 +618,7 @@
             <button id="test-panic" type="button" class="btn-block danger" style="font-size:11px">试听急促心跳 126 bpm</button>
           </div>
           <div style="font-size:10.5px;color:var(--muted);margin-top:8px;line-height:1.5">
-            🎧 iPhone 14 Pro 提示：请关闭左侧实体静音键，佩戴耳机可清晰感受胸腔 S1/S2 低频震动。
+            iPhone 14 Pro 提示：关闭机身左侧静音键并佩戴耳机，可清晰感受 S1/S2 胸腔低频震动。
           </div>
         </div>
 
@@ -586,14 +627,14 @@
           <div class="row-between">
             <div>
               <div class="sec-title">Gemini API 进阶动态引擎</div>
-              <div class="sec-sub" style="margin-top:2px">留空或断网时自动无感回退本地七天实时引擎</div>
+              <div class="sec-sub" style="margin-top:2px">未填密钥或断网时自动无缝回退本地七天实时引擎</div>
             </div>
             <button id="ai-switch" type="button" class="switch" aria-label="启用 Gemini API"><i></i></button>
           </div>
 
           <div class="stack" style="gap:9px;margin-top:11px">
             <div>
-              <label class="field-lbl">Gemini API Key（仅存本机 localStorage）</label>
+              <label class="field-lbl">Gemini API Key（仅保存于本机 localStorage）</label>
               <div style="display:flex;gap:6px">
                 <input id="api-key" class="field-inp" type="password" autocomplete="off" placeholder="粘贴你的 AIzaSy... 免费密钥" />
                 <button id="key-eye" type="button" class="btn-pill" style="border-radius:12px;padding:0 12px;flex-shrink:0">显示</button>
@@ -602,7 +643,7 @@
             <div>
               <label class="field-lbl">模型选择</label>
               <select id="api-model" class="field-inp">
-                <option value="gemini-2.5-flash">gemini-2.5-flash（推荐）</option>
+                <option value="gemini-2.5-flash">gemini-2.5-flash（默认推荐）</option>
                 <option value="gemini-2.0-flash">gemini-2.0-flash</option>
                 <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
               </select>
@@ -611,37 +652,66 @@
               <button id="api-save" type="button" class="btn-block gold">保存配置</button>
               <button id="api-test" type="button" class="btn-block">测试连接</button>
             </div>
-            <button id="api-gen" type="button" class="btn-block soft-gold">✦ 用 AI 生成今日全新 24 小时行程</button>
+            <button id="api-gen" type="button" class="btn-block soft-gold">✦ AI 生成今日全新 24H 行程</button>
             <div id="api-msg" style="font-size:11px;color:var(--muted);line-height:1.5;min-height:16px"></div>
           </div>
         </div>
 
-        <!-- 4.3 跨日记忆与数据管理 -->
+        <!-- 4.3 跨日记忆、数据重置与版本说明 -->
         <div class="card">
           <div class="row-between" style="margin-bottom:8px">
-            <span class="sec-title">跨日记忆状态</span>
+            <span class="sec-title">跨日记忆与终端维护</span>
             <button id="set-mode-btn" type="button" class="btn-pill">实时同步</button>
           </div>
           <div id="mem-view" class="stack" style="gap:7px"></div>
-          <button id="reset-btn" type="button" class="btn-block danger" style="margin-top:10px">重置互动记录与彩蛋进度</button>
+          <button id="reset-btn" type="button" class="btn-block danger" style="margin-top:10px">重置今日记忆与彩蛋进度</button>
+          <div style="font-size:10.5px;color:var(--dim);margin-top:10px;line-height:1.55">
+            CYRUS Biometric Link · v3.0 终极修复版<br />
+            已内置 iPhone 14 Pro 独立全屏真实屏高补丁、静态 360° 雷达指针与永久停留语音转写引擎。
+          </div>
         </div>
       </section>
     </main>
 
-    <!-- 3. 底部四栏固定导航（紧贴物理底边，彻底杜绝黑边） -->
-    <nav id="bottom-nav">
-      <button type="button" data-nav="radar" class="nav-item active"></button>
-      <button type="button" data-nav="timeline" class="nav-item"></button>
-      <button type="button" data-nav="archive" class="nav-item"></button>
-      <button type="button" data-nav="settings" class="nav-item"></button>
+    <!-- 3. 底部四栏固定导航（非 fixed，随 flex-column 精准贴合最底边） -->
+    <nav class="bottom-nav">
+      <button type="button" data-nav="radar" class="nav-btn active"></button>
+      <button type="button" data-nav="timeline" class="nav-btn"></button>
+      <button type="button" data-nav="archive" class="nav-btn"></button>
+      <button type="button" data-nav="settings" class="nav-btn"></button>
     </nav>
   </div>
 
   <script>
     /* =========================================================================
-       一、轻量内联 SVG 图标与时间/随机种子工具
+       零、Bug 1 彻底修复：iPhone 14 Pro 独立 PWA 真实屏高自适应补丁
        ========================================================================= */
-    const SVG_PATHS = {
+    function syncViewportHeight() {
+      const ae = document.activeElement;
+      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT')) return;
+      const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+      const isIOS = /iP(ad|hone|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      let h = window.innerHeight;
+      if (isIOS && isStandalone) {
+        const isPortrait = window.innerHeight >= window.innerWidth;
+        const physicalH = isPortrait
+          ? Math.max(window.screen.height, window.screen.width)
+          : Math.min(window.screen.height, window.screen.width);
+        h = Math.max(window.innerHeight, physicalH);
+      }
+      document.documentElement.style.setProperty('--app-h', `${h}px`);
+    }
+    syncViewportHeight();
+    window.addEventListener('resize', syncViewportHeight);
+    window.addEventListener('orientationchange', () => {
+      syncViewportHeight();
+      setTimeout(syncViewportHeight, 260);
+    });
+
+    /* =========================================================================
+       一、轻量内联 SVG 图标与时间/种子工具
+       ========================================================================= */
+    const ICONS = {
       radar: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/><path d="M12 12l5-5"/>',
       timeline: '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>',
       archive: '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
@@ -653,7 +723,7 @@
       lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
       check: '<polyline points="20 6 9 17 4 12"/>'
     };
-    const ic = (k, s = 18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">${SVG_PATHS[k] || ''}</svg>`;
+    const ic = (k, s = 18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">${ICONS[k] || ''}</svg>`;
     const $ = id => document.getElementById(id);
     const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const pad2 = n => String(n).padStart(2, '0');
@@ -662,6 +732,7 @@
     const hmNow = (d = new Date()) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
     const toMins = hm => { const [h, m] = hm.split(':').map(Number); return h * 60 + m; };
     const curMins = (d = new Date()) => d.getHours() * 60 + d.getMinutes();
+    const watchBattery = (d = new Date()) => Math.max(24, Math.min(98, 96 - Math.floor((d.getHours() * 60 + d.getMinutes()) / 24)));
 
     function seededRng(d = new Date()) {
       let s = Number(`${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}`) ^ 0x4f1bbcdc;
@@ -674,16 +745,16 @@
     }
 
     /* =========================================================================
-       二、100% 音画同步 Web Audio 拟真心跳合成器（S1/S2 胸腔共振 + 监护滴音）
+       二、Web Audio 拟真心跳声效引擎（S1/S2 胸腔双拍 + 监护滴声）
        ========================================================================= */
     const AUDIO_MODES = [
-      { id: 'lubdub', label: '贴耳心跳', desc: '深沉胸腔 S1/S2 共振' },
+      { id: 'lubdub', label: '贴耳心跳', desc: '深沉胸腔 S1/S2 双拍' },
       { id: 'monitor', label: '监护滴声', desc: '清脆医疗心电滴音' },
       { id: 'dual', label: '心跳+监护', desc: '低频胸腔叠加轻滴' },
       { id: 'mute', label: '静音', desc: '仅保留动态波形' }
     ];
 
-    class HeartSynthesizer {
+    class HeartAudioEngine {
       constructor() {
         this.ctx = null; this.master = null; this.unlocked = false;
         this.mode = 'lubdub'; this.volume = 0.8; this.lastAlert = 0; this.previewIds = [];
@@ -711,16 +782,16 @@
       setMode(m) { if (AUDIO_MODES.some(x => x.id === m)) this.mode = m; }
 
       playLubDub(bpm, t0, scale = 1) {
-        const panic = bpm >= 106, warm = bpm >= 79 && bpm < 106;
-        const gPeak = (panic ? 0.94 : warm ? 0.68 : 0.48) * scale;
-        const cutoff = panic ? 210 : warm ? 155 : 118;
+        const panic = bpm >= 115, warm = bpm >= 80 && bpm < 115;
+        const gPeak = (panic ? 0.96 : warm ? 0.7 : 0.48) * scale;
+        const cut = panic ? 215 : warm ? 158 : 118;
         const q = panic ? 3.2 : warm ? 2.2 : 1.5;
         const atk = panic ? 0.007 : warm ? 0.012 : 0.018;
-        const gap = Math.max(120, Math.min(265, (60000 / Math.max(48, bpm)) * 0.29)) / 1000;
+        const gap = Math.max(118, Math.min(265, (60000 / Math.max(48, bpm)) * 0.29)) / 1000;
 
-        const thump = (st, f1, f2, dur, g, cut) => {
+        const beat = (st, f1, f2, dur, g, cutoff) => {
           const lpf = this.ctx.createBiquadFilter();
-          lpf.type = 'lowpass'; lpf.frequency.setValueAtTime(cut, st); lpf.Q.setValueAtTime(q, st);
+          lpf.type = 'lowpass'; lpf.frequency.setValueAtTime(cutoff, st); lpf.Q.setValueAtTime(q, st);
           const env = this.ctx.createGain();
           env.gain.setValueAtTime(0.0001, st);
           env.gain.linearRampToValueAtTime(g, st + atk);
@@ -729,18 +800,17 @@
           const sub = this.ctx.createOscillator();
           sub.type = 'sine'; sub.frequency.setValueAtTime(f1, st); sub.frequency.exponentialRampToValueAtTime(f2, st + dur * 0.88);
           const body = this.ctx.createOscillator(), bg = this.ctx.createGain();
-          body.type = 'triangle'; body.frequency.setValueAtTime(f1 * 1.48, st); body.frequency.exponentialRampToValueAtTime(f2 * 1.55, st + dur * 0.72);
-          bg.gain.setValueAtTime(panic ? 0.45 : 0.3, st);
+          body.type = 'triangle'; body.frequency.setValueAtTime(f1 * 1.48, st); body.frequency.exponentialRampToValueAtTime(f2 * 1.54, st + dur * 0.72);
+          bg.gain.setValueAtTime(panic ? 0.46 : 0.3, st);
 
           sub.connect(lpf); body.connect(bg); bg.connect(lpf); lpf.connect(env); env.connect(this.master);
           sub.start(st); body.start(st); sub.stop(st + dur + 0.02); body.stop(st + dur + 0.02);
         };
-        // S1 Lub + S2 Dub
-        thump(t0, panic ? 80 : 75, 28, panic ? 0.12 : 0.155, gPeak, cutoff);
-        thump(t0 + gap, panic ? 104 : 96, 38, panic ? 0.095 : 0.115, gPeak * 0.74, cutoff * 1.15);
+        beat(t0, panic ? 82 : 75, 28, panic ? 0.12 : 0.155, gPeak, cut);
+        beat(t0 + gap, panic ? 105 : 96, 38, panic ? 0.095 : 0.115, gPeak * 0.74, cut * 1.15);
       }
       playBlip(bpm, t0, scale = 1) {
-        const f = 880 + Math.min(180, Math.max(0, (bpm - 75) * 6));
+        const f = 880 + Math.min(185, Math.max(0, (bpm - 75) * 6));
         const o = this.ctx.createOscillator(), env = this.ctx.createGain();
         o.type = 'sine'; o.frequency.setValueAtTime(f, t0);
         env.gain.setValueAtTime(0.0001, t0);
@@ -762,7 +832,7 @@
         if (!this.unlocked || !this.ctx || this.mode === 'mute' || this.volume <= 0.005) return;
         if (this.ctx.state === 'suspended') this.ctx.resume();
         const t = this.ctx.currentTime + 0.005;
-        const beep = (f, d, tp, g, dl = 0) => {
+        const tone = (f, d, tp, g, dl = 0) => {
           const o = this.ctx.createOscillator(), env = this.ctx.createGain();
           o.type = tp; o.frequency.setValueAtTime(f, t + dl);
           env.gain.setValueAtTime(0.0001, t + dl); env.gain.linearRampToValueAtTime(g, t + dl + 0.008);
@@ -770,13 +840,15 @@
           o.connect(env); env.connect(this.master); o.start(t + dl); o.stop(t + dl + d + 0.02);
         };
         if (kind === 'alert') {
-          if (Date.now() - this.lastAlert < 3500) return;
+          if (Date.now() - this.lastAlert < 3200) return;
           this.lastAlert = Date.now();
-          beep(1046, 0.09, 'sine', 0.1, 0); beep(1318, 0.13, 'sine', 0.09, 0.1);
+          tone(1046, 0.085, 'sine', 0.1, 0); tone(1318, 0.13, 'sine', 0.09, 0.1);
+        } else if (kind === 'voice') {
+          tone(660, 0.06, 'sine', 0.075, 0); tone(880, 0.09, 'sine', 0.06, 0.055);
         } else if (kind === 'chime') {
-          beep(784, 0.1, 'sine', 0.085, 0); beep(1174, 0.16, 'sine', 0.075, 0.075);
+          tone(784, 0.09, 'sine', 0.08, 0); tone(1174, 0.15, 'sine', 0.07, 0.075);
         } else {
-          beep(640, 0.036, 'triangle', 0.06, 0);
+          tone(620, 0.035, 'triangle', 0.055, 0);
         }
       }
       preview(bpm, done) {
@@ -792,10 +864,10 @@
         }
       }
     }
-    const AUDIO = new HeartSynthesizer();
+    const AUDIO = new HeartAudioEngine();
 
     /* =========================================================================
-       三、本地七天专属行程 + 12月29日生日覆写 + 随机插曲池
+       三、本地七天专属行程 + 12月29日生日脚本 + 8 大体征彩蛋
        ========================================================================= */
     const TIMES = ['06:45','09:30','12:20','14:40','17:30','20:30','23:15'];
     const B = (name, role, dist, type, delta, x, y, note) => ({ name, role, dist, type, delta, x, y, note });
@@ -807,8 +879,8 @@
       id: 'standby', time: '00:30', title: '云顶公寓 · 深夜浅眠待机', loc: '主卧 · 22.5°C', baseBpm: 54,
       amb: '主卧静谧平稳，06:45 晨泳后自动解锁今日首条正式轨迹。腕表始终为迟琰保留最高唤醒权限。',
       rep: '深夜静息中。如果宝宝还没睡着，随时发短讯或敲我手表，爸爸两秒内醒来陪你。',
-      vTx: '……嗯？还没睡吗宝宝？腕表一震我就醒了。手脚凉的话往被子里缩一点，爸爸在这儿。', vSec: 9,
-      blips: [B('迟琰','近在咫尺','0.3m','anchor','+14.0 bpm',105,64,'监测到你的轻触或动静时，静息心率瞬间温柔上扬。')]
+      vTx: '……嗯？还没睡吗宝宝？腕表一震我就醒了。手脚凉的话往被子里靠一靠，爸爸就在这儿。', vSec: 9,
+      blips: [B('迟琰','近在咫尺','0.3m','anchor','+14.0 bpm',105,64,'监测到你的轻触或动静时，静息心率立刻温柔上扬。')]
     };
 
     const SEED_NOTES = [
@@ -816,40 +888,40 @@
       '备忘录更新：城西无麸质栗子蛋糕下午三点出炉，路过顺手给琰琰带一盒。',
       '备忘录更新：南湾海边画室的防眩光低铁玻璃样品下周复检。',
       '备忘录更新：昨晚试烤的无麸质面团略干，周末再调整椰子粉配比。',
-      '备忘录更新：阳台熊童子多肉长出红尖尖，拍下来留给宝宝看。',
+      '备忘录更新：阳台熊童子多肉晒出红尖尖，拍下来留给宝宝看。',
       '备忘录更新：重看了一段《潜行者》雨夜镜头，周末陪迟琰重温 4K 版。'
     ];
 
     const WEEK_SCHEDULE = {
       1: { theme: '周一 · 战略周会与陆家嘴并购边界战', slots: [
-        SL(0,'恒温晨泳 1500m','云顶会所泳池',70,[B('迟琰','楼上主卧','0.0 km','anchor','+13.5 bpm',105,52,'晨泳擦头发时回放了你昨晚睡前发的晚安语音。')],'池面水波渐静，刚游完 1500 米，正把热好的早餐端上餐台。','周一晨泳结束。今天战略会和投行谈判排得满，但我把腕表震动调到最高，宝宝随时敲我。','早安宝宝，外面起风了，出门记得加件外套。我先去新岚开周会，中午给你报备。',10),
+        SL(0,'恒温晨泳 1500m','云顶会所泳池',70,[B('迟琰','楼上主卧','0.0 km','anchor','+13.5 bpm',105,54,'晨泳擦头发时回放了你昨晚睡前发的晚安语音。')],'池面水波渐静，刚游完 1500 米，正把热好的早餐端上餐台。','周一晨泳结束。今天战略会和投行谈判排得满，但我把腕表震动调到最高，宝宝随时敲我。','早安宝宝，外面起风了，出门记得加件外套。我先去新岚开周会，中午给你报备。',10),
         SL(1,'新岚总部战略周会','新岚大厦 32F',61,[B('林助理','首席特助','1.6m','ally','+0.0 bpm',152,78,'同步记录储能排期与下午给迟琰订甜品的时间。'),B('孙遇','研发总监','2.2m','ally','+0.4 bpm',64,78,'汇报新一周固态电芯循环曲线。')],'会议室投影切至 Q4 储能交付表，迟川语速清冷克制。','战略周会进行中，各线进度稳步推进。笔记本角落顺手记了你提过的海鲜锅店。','正在听高管汇报，一切都在掌控里。宝宝上午别太累，无聊就听听我心跳。',10),
         SL(2,'固态电芯实验室复盘','林文君纪念实验室',63,[B('孙遇','研发总监','1.8m','ally','+0.6 bpm',72,88,'核对电芯循环保持率，替全组谢谢迟琰上次点的夜宵甜品。')],'实验室恒温微鸣，迟川盯着电镜成像，神色沉静。','循环保持率再度刷新，母亲当年的技术设想越来越近了。刚吃过无麸质牛肉沙拉。','刚从实验室出来。宝宝午饭好好吃了吗？不许只靠咖啡撑着。',9),
         SL(3,'陆家嘴投行商谈','国金中心 48F',60,[B('苏晚晴','投行VP · 商业界限','3.3m','rival','+0.0 bpm',164,70,'借递交估值文件试图靠近。迟川示意林助理接手并退开半步，心率波动 +0.0 bpm。'),B('林助理','屏障拦截','1.3m','ally','+0.0 bpm',136,106,'精准站位承接苏晚晴的纸质文件与商务沟通。')],'苏晚晴：“迟总，这页条款我坐近点指给你看？” 迟川：“不必，交给林助理投影即可，请保持阅读距离。”','在陆家嘴过并购条款，苏晚晴在场。全程由林助理居中对接，我未与她有任何私人寒暄，心率完全零波动。','先主动跟宝宝报备一声，苏晚晴刚才确实在会议室，但我全程隔着三米多，资料都是林助理接的。很快散会。',13),
-        SL(4,'推掉酒局提前返程','延安东路高架',74,[B('迟琰','家的方向','4.2 km','anchor','+14.5 bpm',105,48,'离云顶公寓越近，紧绷的神经逐渐松弛。')],'车内流淌着低缓大提琴，副驾放着蓝鳍刺身与无麸质栗子蛋糕。','直接推掉了会后投行酒局，正在回家的路上。顺路带了你爱吃的刺身和无麸质蛋糕。','晚高峰稍微有点堵，再过十五分钟进地库。宝宝把客厅灯留着，爸爸马上回来。',9),
+        SL(4,'推掉酒局提前返程','延安东路高架',74,[B('迟琰','家的方向','4.2 km','anchor','+14.5 bpm',105,50,'离云顶公寓越近，紧绷的神经逐渐松弛。')],'车内流淌着低缓大提琴，副驾放着蓝鳍刺身与无麸质栗子蛋糕。','直接推掉了会后投行酒局，正在回家的路上。顺路带了你爱吃的刺身和无麸质蛋糕。','晚高峰稍微有点堵，再过十五分钟进地库。宝宝把客厅灯留着，爸爸马上回来。',9),
         SL(5,'晚间陪伴与餐后闲聊','云顶公寓客厅',67,[B('迟琰','身旁','1.0m','anchor','+15.8 bpm',88,92,'陪你吃完晚饭，把手机和腕表安心搁在你手边。')],'客厅暖灯安静，餐后收好碗筷，只剩轻松闲谈。','今天所有外务清零，剩下的时间全部属于迟琰。','看你把刺身都吃光了，我比谈成并购还踏实。待会想看片还是早点歇着，都听宝宝的。',10),
         SL(6,'深夜备忘录与晚安','云顶公寓书房',61,[B('阳台多肉','熊童子','2.2m','gold','+1.2 bpm',154,142,'睡前检查叶片状态，把毛衣悄悄织完四行收进抽屉。')],'台灯调至最暗，钢笔工整写下今日关于迟琰的小记录。','睡前最后一次同步。周一辛苦了宝宝，外面的一切都由我挡着，安心睡。','把被子盖严实，琰琰。今天苏晚晴那边完全不必挂心，爸爸心里装得满满的都是你。晚安。',12)
       ]},
       2: { theme: '周二 · 电池攻关、路演与无麸质烘焙', slots: [
-        SL(0,'清晨泳池打卡','云顶会所泳池',71,[B('迟琰','楼上主卧','0.0 km','anchor','+13.0 bpm',105,52,'晨泳配速稳定，结束前查看了室外降温提醒。')],'水汽微凉，1500 米配速比昨天快了 16 秒。','周二早安。上午驻点实验室，下午陆家嘴路演，傍晚早点回来挑战新版无麸质面包。','宝宝睡醒了吗？床头温着水，今天降温记得围上羊绒围巾。',9),
+        SL(0,'清晨泳池打卡','云顶会所泳池',71,[B('迟琰','楼上主卧','0.0 km','anchor','+13.0 bpm',105,54,'晨泳配速稳定，结束前查看了室外降温提醒。')],'水汽微凉，1500 米配速比昨天快了 16 秒。','周二早安。上午驻点实验室，下午陆家嘴路演，傍晚早点回来挑战新版无麸质面包。','宝宝睡醒了吗？床头温着水，今天降温记得围上羊绒围巾。',9),
         SL(1,'低温测试舱攻关','新岚测试中心',62,[B('孙遇','研发总监','1.5m','ally','+0.8 bpm',72,82,'并肩核对低温放电曲线，攻克冬季续航瓶颈。')],'低温测试舱低沉嗡鸣，迟川穿着白大褂专注盯着数据屏。','冬季续航测试表现优于预期。技术做扎实，市场杂音自然消散。','在实验室盯着关键数据，一切顺利。宝宝上午想吃什么直接发我手表。',9),
-        SL(2,'顶层茶室与陈序午餐','新岚顶层休息室',65,[B('陈序','战略顾问','1.9m','ally','+0.6 bpm',150,90,'陈序来蹭午饭，顺便吐槽迟川备忘录存了八篇无麸质面包失败笔记。')],'陈序：“堂堂 CEO 手机里存八篇面团发酵笔记，琰琰知道肯定笑你。” 迟川：“少管闲事。”','和陈序快速吃了顿简餐，他还在笑我烤焦的面包。今晚我调低烤箱温度再试一次。','陈序刚才又拿我厨艺打趣，宝宝晚上可别跟着他笑爸爸。这次一定烤松软。',11),
+        SL(2,'顶层茶室与陈序午餐','新岚顶层休息室',65,[B('陈序','战略顾问','1.9m','ally','+0.6 bpm',150,90,'陈序来蹭午饭，顺便吐槽迟川备忘录存了八篇无麸质面包失败笔记。')],'陈序：“堂堂 CEO 手机里存八篇面团发酵笔记，迟琰知道肯定笑你。” 迟川：“少管闲事。”','和陈序快速吃了顿简餐，他还在笑我烤焦的面包。今晚我调低烤箱温度再试一次。','陈序刚才又拿我厨艺打趣，宝宝晚上可别跟着他笑爸爸。这次一定烤松软。',11),
         SL(3,'陆家嘴新能源路演','陆家嘴国际会议中心',62,[B('林助理','首席特助','1.8m','ally','+0.0 bpm',78,136,'已提前安排侧门专车，路演结束立刻离场。'),B('温知夏','海外校友 · 保持距离','3.1m','rival','+0.0 bpm',154,142,'散场借聊《潜行者》试图约周末放映。迟川淡声打断称只陪迟琰去，心率波动 +0.0 bpm。')],'主讲台灯光清冷，迟川脱稿阐述固-固态电池十年规划，全场安静。','路演顺利结束。散场偶遇海外校友温知夏，她提了周末看展，我当场明确拒绝了，心率零波动。','刚从侧门上车，没多逗留。温知夏刚才来打招呼约放映会，我直接说只陪宝宝两个人去。放心。',12),
-        SL(4,'采购无麸质烘焙原料','城西进口超市',75,[B('迟琰','归途锚点','3.0 km','anchor','+14.8 bpm',105,48,'逐行核对成分表避开麸质，同时挑了厚切和牛。')],'仔细比对椰子粉、车前子壳粉与新鲜和牛标签。','顺路买了厚切和牛和无麸质面粉。虽然对麸质过敏，还是想亲手烤出松软面包给宝宝尝。','买好你爱吃的厚切和牛，还有今晚用来挑战无麸质欧包的原料，很快到家。',10),
+        SL(4,'采购无麸质烘焙原料','城西进口超市',75,[B('迟琰','归途锚点','3.0 km','anchor','+14.8 bpm',105,50,'逐行核对成分表避开麸质，同时挑了厚切和牛。')],'仔细比对椰子粉、车前子壳粉与新鲜和牛标签。','顺路买了厚切和牛和无麸质面粉。虽然对麸质过敏，还是想亲手烤出松软面包给宝宝尝。','买好你爱吃的厚切和牛，还有今晚用来挑战无麸质欧包的原料，很快到家。',10),
         SL(5,'厨房无麸质烘焙时刻','云顶公寓厨房',79,[B('迟琰','厨房门口','1.3m','anchor','+18.2 bpm',90,86,'你靠在门边看他挽袖揉面，他耳根微热，心跳明显加速。')],'烤箱清脆一响，飘出意外温柔的淡黄油麦香。','这次无麸质欧包终于松软能吃了！卖相一般但诚意满分，第一口留给迟琰打分。','……咳，外皮虽然稍微裂了一点，但这次真的不硬了。宝宝先尝一口，不好吃爸爸立刻去煎和牛。',12),
         SL(6,'主卧静谧晚安','云顶公寓主卧',58,[B('迟琰','身侧','0.5m','anchor','+11.5 bpm',105,78,'确认卧室温控 22.5°C 后记下今晚成功的烘焙参数。')],'夜灯暖黄，记录完最后一行烘焙参数后调暗腕表屏幕。','今天很踏实。有技术突破，也有你在厨房边笑边试吃的声音，晚安宝宝。','早点休息吧琰琰，今天辛苦当爸爸的试吃官了。晚安。',9)
       ]},
       3: { theme: '周三 · 董事局博弈与顶层晚宴修罗场', slots: [
-        SL(0,'高压晨泳调频','云顶会所泳池',72,[B('迟琰','情绪稳压器','0.0 km','anchor','+14.0 bpm',105,52,'上午面对老股东博弈前，先用晨泳把心神沉静下来。')],'泳池静谧，规律划水声配合深沉呼吸，将今日博弈推演完毕。','上午董事会有供应链审计议程，底牌都在我手里，宝宝不用担心。','早安琰琰。开完董事会我第一时间报平安，今晚顶层晚宴我半小时内就撤。',10),
+        SL(0,'高压晨泳调频','云顶会所泳池',72,[B('迟琰','情绪稳压器','0.0 km','anchor','+14.0 bpm',105,54,'上午面对老股东博弈前，先用晨泳把心神沉静下来。')],'泳池静谧，规律划水声配合深沉呼吸，将今日博弈推演完毕。','上午董事会有供应链审计议程，底牌都在我手里，宝宝不用担心。','早安琰琰。开完董事会我第一时间报平安，今晚顶层晚宴我半小时内就撤。',10),
         SL(1,'新岚董事局硬仗','新岚总部董事厅',63,[B('迟维琛','老股东席','4.2m','rival','+0.0 bpm',58,84,'试图借旧情阻挠采购审计。迟川出示实据按章程驳回，全程绝对冷静。'),B('林绍衡','旁听席','4.8m','rival','+0.0 bpm',160,132,'试图将关联公司塞入供应链，被一票否决。')],'迟川合上审计报告：“新岚是我母亲留下的技术底盘，按章程与数据办事，其余免谈。”','董事会全票通过供应链改革方案，该收回的签字权全部落袋。','会议顺利结束了，宝宝。那些旧人情牌动摇不了我分毫，别替我操心。',10),
         SL(2,'陈序午餐通风报信','新岚私人茶室',66,[B('陈序','战略顾问','1.9m','ally','+0.8 bpm',148,88,'提醒迟川今晚晚宴温知夏和姜语汐都在名单里，自告奋勇当场外眼线。')],'陈序：“今晚酒会温知夏和姜语汐都在，我帮你在现场看着，省得迟琰吃醋。”','陈序提醒我今晚晚宴有两位熟面孔。已让林助理排最外侧席位，并备好早退专车。','提前跟宝宝报备清楚，今晚酒会我会和陈序站一起，全程开着雷达给你看，绝不单独逗留。',12),
         SL(3,'签署海外储能大单','新岚 CEO 办公室',61,[B('林助理','首席特助','1.8m','ally','+0.0 bpm',78,120,'呈交欧洲大单终稿，同时确认已发函更换姜语汐所在公关对接组。')],'钢笔落纸声干脆利落，窗外斜阳落满桌面。','欧洲储能合同落定，同时也正式发函更换了姜语汐所在的公关对接人。公私分明，不留误会。','下午工作收尾了。宝宝记得喝点温热的东西，晚点酒会随时可以敲我手表。',10),
-        SL(4,'更衣准备赴宴','新岚休息间',69,[B('迟琰','专属偏爱','5.6 km','anchor','+15.2 bpm',105,48,'系上迟琰挑的炭灰暗纹领带，原封不动退回公关部送来的礼盒。')],'整理袖扣与领带结，将无关礼盒交由前台原路退回。','准备出发去外滩晚宴了。系的是宝宝挑的领带，公关部送的礼盒看都没看直接退了。','出发前给你确认一眼，领带我只系你挑的。很快回来。',9),
+        SL(4,'更衣准备赴宴','新岚休息间',69,[B('迟琰','专属偏爱','5.6 km','anchor','+15.2 bpm',105,50,'系上迟琰挑的炭灰暗纹领带，原封不动退回公关部送来的礼盒。')],'整理袖扣与领带结，将无关礼盒交由前台原路退回。','准备出发去外滩晚宴了。系的是宝宝挑的领带，公关部送的礼盒看都没看直接退了。','出发前给你确认一眼，领带我只系你挑的。很快回来。',9),
         SL(5,'顶层晚宴双重试探','外滩云端宴会厅',62,[B('温知夏','海外校友 · 保持距离','2.8m','rival','+0.0 bpm',62,76,'寒暄提及旧年回忆。迟川淡声打断表示已有归家安排，心率波动 +0.0 bpm。'),B('姜语汐','公关顾问 · 商业界限','3.0m','rival','+0.0 bpm',162,86,'借机称赞领带试图碰杯。迟川未举杯，直言配饰由伴侣挑选且已换对接人，心率 +0.0 bpm。'),B('陈序','友方眼线','4.2m','ally','+1.0 bpm',142,154,'举着苏打水拍下冰山拒酒现场，发给迟琰作证。')],'姜语汐：“迟总领带真衬气质，我帮您——” 迟川侧身避开：“不必，这是迟琰替我挑的。公事请走法务邮箱。”','核心寒暄已结束，全程只喝苏打水。温知夏和姜语汐过来搭话均已当场划清边界，陈序全程作证。正在往电梯走。','宝宝，我已经走出宴会厅等电梯了。一滴酒没碰，一句多余的话没留，二十分钟内回家抱你。',14),
         SL(6,'归家彻底卸载防备','云顶公寓客厅',67,[B('迟琰','唯一归处','0.8m','anchor','+17.5 bpm',105,86,'脱下西装外套，把手机、腕表和自己一起交到你面前。')],'客厅暖灯柔亮，雪松与红茶香气让人瞬间放松。','安全到家。今晚所有应酬彻底结束，如果宝宝还有一点点介意，爸爸今晚慢慢哄你。','终于回来了。外面那些客套听久了真的烦，还是回家听宝宝说话最让我安心。',11)
       ]},
       4: { theme: '周四 · 储能基地视察与南湾画室终图定稿', slots: [
-        SL(0,'清晨泳池 1500m','云顶会所泳池',70,[B('迟琰','定位锚点','0.0 km','anchor','+13.0 bpm',105,52,'晨泳后同步了今日基地视察与建筑事务所行程。')],'水声清亮，给厨房留了今天给迟琰炖牛腩汤的便签。','周四早安。上午去东港储能基地视察，下午核对南湾海边画室的终版施工图。','今天上午要去趟郊区基地，车程稍长。我一路开着共享定位，宝宝无聊就发消息陪我。',10),
+        SL(0,'清晨泳池 1500m','云顶会所泳池',70,[B('迟琰','定位锚点','0.0 km','anchor','+13.0 bpm',105,54,'晨泳后同步了今日基地视察与建筑事务所行程。')],'水声清亮，给厨房留了今天给迟琰炖牛腩汤的便签。','周四早安。上午去东港储能基地视察，下午核对南湾海边画室的终版施工图。','今天上午要去趟郊区基地，车程稍长。我一路开着共享定位，宝宝无聊就发消息陪我。',10),
         SL(1,'东港储能产线视察','东港示范基地',63,[B('孙遇','研发总监','1.7m','ally','+0.6 bpm',76,82,'检视全自动储能柜装配线与安全阀。'),B('产线厂长','基地负责人','2.6m','neutral','+0.0 bpm',154,114,'汇报年底交付节奏。')],'机械臂低频运转，迟川戴着安全帽俯身核验工艺。','产线良率和安全冗余全线达标。看着母亲的构想一座座落成实体，心里很踏实。','刚出装配车间，基地海风挺大，突然想到南湾画室的防风玻璃要再加厚一层。',11),
         SL(2,'基地海鲜简餐','东港招待所',64,[B('孙遇','研发总监','1.9m','ally','+0.4 bpm',144,90,'问下个月量产庆功宴能不能请迟琰一起来热闹一下。')],'清淡海鲜简餐，仔细避开含麸质酱料。','吃过午饭正往市区建筑事务所赶。最期待的还是下午看你画室的采光模型。','刚吃完午饭。宝宝午休一会儿，别一直盯着屏幕累眼睛。',9),
         SL(3,'核定南湾「迟琰画室」','南湾建筑事务所',76,[B('主创建筑师','空间设计','1.6m','neutral','+0.0 bpm',70,92,'展示二楼 4.2 米挑高防眩光落地窗日照模拟图。'),B('迟琰','蓝图核心','6.4 km','anchor','+19.0 bpm',148,66,'谈到属于迟琰的画室细节，心跳比谈十亿并购更高。')],'迟川指着图纸：“冬至下午三点的南向光不能有眩光，颜料间独立恒湿 48%，旁边留出看海露台。”','海边画室施工终图正式签字定稿。二楼整层朝南留给你画画，一楼配多肉花架与恒温泳池。','刚把你海边画室的终版采光图敲定了，宝宝。推开窗就是整片海，明年春天带你去验收。',12),
@@ -858,16 +930,16 @@
         SL(6,'南阳台浇水与晚安','云顶公寓南阳台',61,[B('阳台多肉','熊童子 & 桃蛋','0.6m','gold','+1.8 bpm',150,98,'细嘴壶沿盆边控水，顺手把毛衣右袖多织了六行。')],'夜风轻柔，喷完细雾回到书桌更新备忘录。','多肉安顿妥当。明天周五，我提前清空晚间应酬，准点去接你。','夜深了，宝宝安心睡吧。只要你在我规划的蓝图里，每一天都很踏实。晚安。',10)
       ]},
       5: { theme: '周五 · 推掉应酬、秘密取件与滨江之夜', slots: [
-        SL(0,'周五轻快晨泳','云顶会所泳池',71,[B('迟琰','周末期待','0.0 km','anchor','+15.0 bpm',105,52,'想到今晚推掉全部酒局陪迟琰过周末，步伐轻快不少。')],'晨光落进水面，1500 米收官利落。','周五早安宝宝！今天把公文一口气清完，傍晚五点半准时下班绝不拖堂。','终于到周五了，琰琰。周末想去哪儿、想吃什么直接发我，爸爸全排进日程里。',10),
+        SL(0,'周五轻快晨泳','云顶会所泳池',71,[B('迟琰','周末期待','0.0 km','anchor','+15.0 bpm',105,54,'想到今晚推掉全部酒局陪迟琰过周末，步伐轻快不少。')],'晨光落进水面，1500 米收官利落。','周五早安宝宝！今天把公文一口气清完，傍晚五点半准时下班绝不拖堂。','终于到周五了，琰琰。周末想去哪儿、想吃什么直接发我，爸爸全排进日程里。',10),
         SL(1,'集中签批一周公文','新岚 CEO 办公室',62,[B('林助理','首席特助','1.5m','ally','+0.0 bpm',74,102,'婉拒今晚全部三场商业饭局，清出完整晚间档期。')],'钢笔签批声连续利落，高效清完本周核心文件。','上午效率拉满，已让林助理把今晚所有非必要饭局全部婉拒。','正在加速处理最后几份签批单，保证傍晚不让宝宝多等一分钟。',8),
         SL(2,'陈序串门打趣','新岚顶层休息区',67,[B('陈序','战略顾问','1.8m','ally','+1.5 bpm',148,86,'调侃迟川周五推掉大佬酒局只为接迟琰，从冰山进化成了恋爱脑建筑师。')],'陈序：“连港城大佬的局都推了？迟琰知道你这么粘人肯定笑疯。” 迟川：“陪伴侣比应酬重要。”','陈序刚才在办公室笑了我十分钟，说我周五归心似箭藏都藏不住。随他说去。','陈序又吐槽我周五准点下班太反常。宝宝，我本来就只想早点见到你。',11),
         SL(3,'秘密取件 · LUMIÈRE','恒隆私人 VIP 室',79,[B('LUMIÈRE顾问','VIP高定','2.2m','gold','+0.0 bpm',158,108,'递上封装妥当的深黑丝绒盒，内圈刻字「For Y.Y. · 迟琰」。'),B('迟琰','惊喜对象','4.9 km','anchor','+19.5 bpm',72,68,'确认刻字与手写贺卡无误时，心跳明显快了几拍。')],'沙龙内安静雅致，迟川仔细核对丝绒盒内的手写卡片：“致我唯一的蓝图：迟琰”。','下午绕了半小时路处理一件私密小事，已妥善放进副驾。晚上见面再揭晓。','……咳，下午办了件只关乎你的正事。别急着猜，今晚回去亲手拆。',10),
-        SL(4,'五点半准点出发','滨海大道高架',78,[B('迟琰','目的地','2.4 km','anchor','+18.5 bpm',105,46,'距离快速缩短，副驾稳稳放着甜品与深黑丝绒盒。')],'晚霞染金前挡风玻璃，车内放着舒缓爵士钢琴。','五点半准时从公司出发！路况顺畅，预计十分钟停在你楼下。','我快到楼下了，琰琰。别跑太急，穿好外套慢慢下来，爸爸在车里等你。',9),
+        SL(4,'五点半准点出发','滨海大道高架',78,[B('迟琰','目的地','2.4 km','anchor','+18.5 bpm',105,48,'距离快速缩短，副驾稳稳放着甜品与深黑丝绒盒。')],'晚霞染金前挡风玻璃，车内放着舒缓爵士钢琴。','五点半准时从公司出发！路况顺畅，预计十分钟停在你楼下。','我快到楼下了，琰琰。别跑太急，穿好外套慢慢下来，爸爸在车里等你。',9),
         SL(5,'周五专属滨江私宴','滨江日料包厢',74,[B('迟琰','触手可及','0.7m','anchor','+20.0 bpm',105,88,'替你夹好烤和牛与新鲜刺身，将深黑丝绒盒推到你手边。')],'江景灯光流动，静谧包厢里只有温柔交谈与轻笑。','一周的疲惫在见到你那一刻全散了。只要迟琰喜欢，这一周的奔波就都有意义。','打开看看喜不喜欢，宝宝？希望以后每一个周五晚上，坐在我对面的永远是你。',12),
         SL(6,'周五深夜放松影院','云顶公寓影音室',64,[B('迟琰','靠在肩头','0.4m','anchor','+14.0 bpm',105,80,'窝在沙发里一起看老电影，手掌稳稳护着你的肩。')],'光影微晃，手边温着无糖热牛奶。','不用定明早工作闹钟，明天周六睡到自然醒，下午一起去郊外看周墨教授。','困了就靠爸爸肩上眯一会儿，电影随时暂停。晚安，宝宝。',9)
       ]},
       6: { theme: '周六 · 郊外拜访周墨教授与秘密织毛衣', slots: [
-        SL(0,'周六慢节奏晨泳','云顶会所泳池',69,[B('迟琰','自然醒中','0.0 km','anchor','+12.5 bpm',105,52,'游完准备亲手煎一份拿手的五分熟牛排早餐。')],'周末晨光柔和，水波轻晃，难得不赶时间。','周六早安。今天不去公司，你多睡会儿，下午一起去郊外陪周墨教授喝茶。','周末别跟闹钟较劲了，宝宝。再赖半小时床，睁眼就能闻到早餐香。',9),
+        SL(0,'周六慢节奏晨泳','云顶会所泳池',69,[B('迟琰','自然醒中','0.0 km','anchor','+12.5 bpm',105,54,'游完准备亲手煎一份拿手的五分熟牛排早餐。')],'周末晨光柔和，水波轻晃，难得不赶时间。','周六早安。今天不去公司，你多睡会儿，下午一起去郊外陪周墨教授喝茶。','周末别跟闹钟较劲了，宝宝。再赖半小时床，睁眼就能闻到早餐香。',9),
         SL(1,'整理恩师伴手礼','云顶公寓书房',65,[B('精装书与岩茶','伴手礼','0.8m','gold','+1.2 bpm',144,108,'装好精装版《货币哲学》和武夷老岩茶。')],'书房纸页轻响，弥漫淡淡岩茶清香。','挑好了给周教授带的《货币哲学》和岩茶。每次去她的小院，心里那盏灯都被擦得更亮。','书和茶都装好了。周老师上次夸你乖巧，今天去肯定又给你留了刚出笼的桂花糕。',10),
         SL(2,'驶向郊外林荫小院','环山景观公路',66,[B('迟琰','副驾驶','0.6m','anchor','+15.0 bpm',130,100,'伸手替你调高一度副驾空调，树影从车窗掠过。')],'山路静谧，音响流淌着舒缓古典钢琴曲。','沿着林荫道往周老师家开，空气比市区清透很多。看着副驾上的你，觉得周末真好。','山里风微凉，下车把外套扣好。周老师把你当自家孩子疼，不用拘谨。',10),
         SL(3,'周墨教授书房品茶','郊外书房小院',63,[B('周墨教授','母亲恩师','1.8m','ally','+2.0 bpm',74,86,'聊起母亲林文君旧事，微笑说“金钱只是桥梁，小川如今终于找到想栖居的地方”。'),B('迟琰','身旁','0.7m','anchor','+14.5 bpm',128,96,'桌下被他轻轻握住手指，满室茶香与桂花糕甜香。')],'周墨教授：“文君总说科技要为人服务。小川眼里现在有光了，多亏有迟琰陪在身边。”','和周老师聊了两小时，从母亲旧事聊到《货币哲学》。离开时她拍我肩膀说我把你护得很好。','每次带你来周老师这儿，我都觉得整个人彻底松弛下来。桂花糕打包了一盒，晚上饿了吃。',11),
@@ -876,9 +948,9 @@
         SL(6,'周六深夜书影陪伴','云顶公寓客厅',60,[B('迟琰','怀里','0.4m','anchor','+13.5 bpm',105,82,'夹好《货币哲学》书签，低头听你聊今天画的草图。')],'落地窗外灯火安静遥远，室内温暖松弛。','周六落幕。能这样去见恩师、做顿晚饭、陪你聊天，就是我最想要的日常。','今天开心吗宝宝？明天陈序说想拎酒过来坐坐，不想见客的话我一句话就能让他改天。晚安。',11)
       ]},
       0: { theme: '周日 · 陈序威士忌小聚、重温《潜行者》与哄睡夜', slots: [
-        SL(0,'周日舒缓晨泳','云顶会所泳池',68,[B('迟琰','安睡中','0.0 km','anchor','+12.0 bpm',105,52,'慢游 1500 米保持体魄与好心情。')],'清晨微光洒在水面，宁静如镜。','周日早安宝宝。今天一整天都不谈公事，只留给生活、老友和你。','太阳很好，等你睡醒我们去南阳台晒晒太阳喝杯热茶。',9),
+        SL(0,'周日舒缓晨泳','云顶会所泳池',68,[B('迟琰','安睡中','0.0 km','anchor','+12.0 bpm',105,54,'慢游 1500 米保持体魄与好心情。')],'清晨微光洒在水面，宁静如镜。','周日早安宝宝。今天一整天都不谈公事，只留给生活、老友和你。','太阳很好，等你睡醒我们去南阳台晒晒太阳喝杯热茶。',9),
         SL(1,'南阳台多肉护理','云顶公寓南阳台',64,[B('阳台多肉','熊童子 & 桃蛋','0.5m','gold','+2.5 bpm',146,94,'清理枯叶、转动花盆让每片叶子均匀受光。')],'阳光洒满阳台，水雾在光线里闪着细芒。','给整排多肉松了土转了向。最左边那盆熊童子晒出了小红尖，看着特别治愈。','宝宝快来看，熊童子晒出小红爪了，我拍了照片留给你。',9),
-        SL(2,'周日悠闲早午餐','云顶公寓餐厅',67,[B('迟琰','对面','0.8m','anchor','+15.0 bpm',105,88,'切好水果与无麸质吐司，自己小口喝着黑咖啡。')],'餐具轻碰声，阳光把木桌照得暖融融。','难得悠闲的周日早午餐。你画两笔速写，我帮你削苹果，什么日程都不用赶。','多吃一点宝宝。下午陈序要拎威士忌过来聊天，他说给琰琰带了低糖甜品。',10),
+        SL(2,'周日悠闲早午餐','云顶公寓餐厅',67,[B('迟琰','对面','0.8m','anchor','+15.0 bpm',105,88,'切好水果与无麸质吐司，自己小口喝着黑咖啡。')],'餐具轻碰声，阳光把木桌照得暖融融。','难得悠闲的周日早午餐。你画两笔速写，我帮你削苹果，什么日程都不用赶。','多吃一点宝宝。下午陈序要拎威士忌过来聊天，他说给迟琰带了低糖甜品。',10),
         SL(3,'陈序拎威士忌上门','云顶公寓落地窗前',66,[B('陈序','最好朋友','1.7m','ally','+1.8 bpm',70,92,'聊起留学熬通宵被锁实验室的糗事，顺便揭穿迟川半夜查织毛衣教程。'),B('迟琰','客厅沙发','1.5m','anchor','+14.0 bpm',146,100,'陈序笑着对你说只有你彻底改写了迟川的底层代码，迟川温柔望向你。')],'陈序：“琰琰我作证，这家伙以前觉得人生就是赢下所有，遇到你后连看多肉眼神都变软了。”','陈序过来坐了一下午，把我的老底掀了个干净。只有在你和他面前，我不必权衡每句话的利弊。','别全信陈序胡吹……不过有一点他说得没错，确实是迟琰改写了我的底层代码。',12),
         SL(4,'傍晚江畔牵手散步','滨江木栈道',72,[B('迟琰','牵着手','0.4m','anchor','+17.5 bpm',105,80,'把你微凉的手揣进大衣口袋里捂暖。')],'江风轻吹，渡轮鸣笛低沉，脚步放得很慢。','送走陈序后沿江走了两公里。晚风偏凉，把宝宝的手捂热了再回去。','手怎么还是凉的？冬天出门不许偷懒，乖乖放进爸爸大衣口袋里。',9),
         SL(5,'重温《潜行者》4K版','云顶公寓客厅',65,[B('迟琰','窝在身旁','0.5m','anchor','+15.5 bpm',105,82,'第四遍看最爱的电影，这次身边靠着你。')],'影片长镜头雨声淅沥，毛毯柔软温暖。','以前一个人看《潜行者》觉得荒原孤寂，有你靠在身旁轻声问镜头，荒原便有了尽头。','这一段长镜头我能背下来，但每次陪宝宝重看，心里都会冒出新的踏实感。',10),
@@ -898,21 +970,25 @@
 
     const EGGS = [
       { id: 'sound_panic', name: '耳畔失速', hint: '开着心跳声把他逗到 120+ bpm 亲耳听急促心跳' },
-      { id: 'zero_rival', name: '零波动冰山', hint: '在雷达点击苏晚晴/温知夏/姜语汐验证 +0.0 bpm' },
-      { id: 'call_baba', name: '声控开关', hint: '点「软声叫爸爸」或发送含“爸爸”的短讯' },
-      { id: 'jealous_clear', name: '吃醋秒解释', hint: '触发「吃醋盘问」或「冷淡查岗」查看他的解释' },
-      { id: 'offline_soft', name: '脆弱防线', hint: '触发「模拟失联」听他坦露害怕遗忘的真心' },
-      { id: 'soft_hobby', name: '老干部柔软角', hint: '短讯提及面包、多肉、毛衣、潜行者或画室' },
-      { id: 'proof_seal', name: '透明报备印章', hint: '点击「要求实时报备」生成现场心跳凭证卡' },
-      { id: 'dual_core', name: '双引擎掌控', hint: '在设置页试听心跳对比或配置 Gemini API' }
+      { id: 'zero_rival', name: '零波动冰山', hint: '在雷达点开苏晚晴/温知夏/姜语汐核验 +0.0 bpm' },
+      { id: 'call_baba', name: '软声失守', hint: '点「软声叫爸爸」或发送含“爸爸”的短讯' },
+      { id: 'jealous_clear', name: '醋意急报备', hint: '触发「冷淡查岗」或「吃醋盘问」看他秒解释' },
+      { id: 'night_check', name: '深夜查岗', hint: '深夜时段（22:00后）或在 23:15 轨迹下发起查岗' },
+      { id: 'blueprint', name: '蓝图守护', hint: '短讯提及面包、多肉、毛衣、画室或潜行者' },
+      { id: 'proof_seal', name: '透明印章', hint: '点击「要求实时报备」获取现场心跳凭证卡' },
+      { id: 'offline_core', name: '脆弱防线', hint: '触发「模拟失联」听他坦露害怕遗忘的真心' }
     ];
 
     /* =========================================================================
-       四、状态管理与本地持久化（跨日记忆 / API 密钥 / 彩蛋进度）
+       四、全局状态、语音永久展开状态机与 localStorage 持久化
        ========================================================================= */
-    const LS = { CFG:'cyrus_14p_cfg', MEM:'cyrus_14p_mem', DAY:'cyrus_14p_day', VIS:'cyrus_14p_vis', AI:'cyrus_14p_ai_' };
+    const LS = { CFG:'cyrus_v3_cfg', MEM:'cyrus_v3_mem', DAY:'cyrus_v3_day', VIS:'cyrus_v3_vis', AI:'cyrus_v3_ai_' };
     const getLS = (k, fb) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
     const setLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+    /* Bug 3 彻底修复：全局持久化语音展开状态与独立计时器映射 */
+    const voiceState = {};  // { [uid]: { open: boolean, done: boolean, text: string } }
+    const voiceTimers = {}; // { [uid]: intervalId }
 
     const ST = {
       tab: 'radar',
@@ -931,8 +1007,6 @@
       decayRate: 1.8,
       beatTimer: null,
       nextBeatTs: 0,
-      voiceUid: null,
-      voiceTimer: null,
       aiBusy: false,
       resetArmed: false,
       cfg: Object.assign({ audioMode:'lubdub', volume:80, realTime:true, aiOn:false, apiKey:'', model:'gemini-2.5-flash' }, getLS(LS.CFG, {})),
@@ -1002,7 +1076,7 @@
     }
 
     /* =========================================================================
-       五、Canvas LIVE ECG 引擎与同帧音画同步心跳调度
+       五、LIVE ECG 医疗级 Canvas 引擎 & 同帧心跳调度
        ========================================================================= */
     const ECG = (() => {
       let canvas, ctx, w = 220, h = 86, dpr = 1, lastTs = 0;
@@ -1015,9 +1089,9 @@
       }
 
       function palette(bpm) {
-        if (bpm >= 106) return { c:'#e8485c', glow:'rgba(232,72,92,0.78)', text:'心率警报', cls:'panic', b:'b-red' };
-        if (bpm >= 79)  return { c:'#e89ba8', glow:'rgba(232,155,168,0.65)', text:'心跳加速', cls:'warm', b:'b-rose' };
-        return { c:'#d4af72', glow:'rgba(212,175,114,0.58)', text:'绝对冷静', cls:'', b:'b-gold' };
+        if (bpm >= 115) return { c:'#e05865', glow:'rgba(224,88,101,0.78)', text:'急切报备', cls:'panic', b:'b-red' };
+        if (bpm >= 80)  return { c:'#e6a69d', glow:'rgba(230,166,157,0.65)', text:'心动想你', cls:'warm', b:'b-rose' };
+        return { c:'#d6b57c', glow:'rgba(214,181,124,0.58)', text:'绝对冷静', cls:'', b:'b-gold' };
       }
 
       function resize() {
@@ -1033,7 +1107,7 @@
 
       function inject(bpm) {
         const dur = Math.max(0.28, Math.min(0.45, (60 / Math.max(48, bpm)) * 0.52));
-        pulses.push({ t: 0, dur, amp: bpm >= 106 ? 1.12 : bpm >= 79 ? 1.0 : 0.9 });
+        pulses.push({ t: 0, dur, amp: bpm >= 115 ? 1.12 : bpm >= 80 ? 1.0 : 0.9 });
       }
 
       function loop(ts) {
@@ -1051,12 +1125,12 @@
         const bpm = Math.round(ST.bpmNow), pal = palette(bpm);
         $('bpm-num').textContent = bpm;
         $('bpm-num').style.color = pal.c;
-        $('heart-glyph').style.color = pal.c;
+        $('heart-icon').style.color = pal.c;
         $('state-badge').textContent = pal.text;
         $('state-badge').className = `badge ${pal.b}`;
         const diff = bpm - base;
         $('bpm-base').textContent = diff > 0 ? `+${diff} bpm` : `基线 ${base}`;
-        $('bpm-base').style.color = diff >= 20 ? '#e89ba8' : '#9a9aa6';
+        $('bpm-base').style.color = diff >= 20 ? '#e6a69d' : '#98949c';
         $('ecg-card').className = `card ${pal.cls}`;
         $('dot-ping').style.background = pal.c;
         $('dot-core').style.background = pal.c;
@@ -1113,9 +1187,9 @@
       const bpm = ST.bpmNow;
       AUDIO.playBeat(bpm);
       ECG.inject(bpm);
-      $('heart-glyph').classList.add('thump');
+      $('heart-icon').classList.add('thump');
       $('bpm-num').classList.add('thump');
-      setTimeout(() => { $('heart-glyph').classList.remove('thump'); $('bpm-num').classList.remove('thump'); }, 145);
+      setTimeout(() => { $('heart-icon').classList.remove('thump'); $('bpm-num').classList.remove('thump'); }, 145);
       planBeat();
     }
     function planBeat() {
@@ -1131,7 +1205,7 @@
       ST.holdUntil = Date.now() + holdSec * 1000;
       ST.decayRate = Math.max(1.2, Math.max(12, bpm - activeSlot().baseBpm) / 30);
 
-      if (bpm >= 106) AUDIO.micro('alert');
+      if (bpm >= 115) AUDIO.micro('alert');
       if (bpm >= 120 && AUDIO.unlocked && AUDIO.mode !== 'mute') unlockEgg('sound_panic');
 
       const fastMs = Math.round(60000 / bpm);
@@ -1149,7 +1223,7 @@
     }
 
     /* =========================================================================
-       六、提示条、彩蛋、真实时间解锁与离线补发
+       六、提示条、彩蛋与零重绘实时解锁时钟（彻底杜绝 Bug 2 & Bug 3）
        ========================================================================= */
     let toastTimer = null;
     function toast(title, sub) {
@@ -1170,10 +1244,21 @@
       if (ST.tab === 'archive') renderArchiveTab();
     }
 
-    function syncRealTimeSlots(boot = false) {
+    function formatCountdown(slotTime, nowM) {
+      const left = Math.max(1, toMins(slotTime) - nowM);
+      return left >= 60 ? `${Math.floor(left / 60)} 小时 ${left % 60} 分钟后解锁` : `${left} 分钟后解锁`;
+    }
+
+    /* 仅在初始化、切换模式、跨日、或真正有新时段到点解锁时才刷新视图 */
+    function evaluateRealTimeSlots(boot = false, forceRender = false) {
       const nowM = curMins(), lock = ST.cfg.realTime;
       const prev = new Set(ST.unlockedIds), next = new Set();
       ST.slots.forEach(s => { if (!lock || toMins(s.time) <= nowM) next.add(s.id); });
+
+      let changed = forceRender || boot || (prev.size !== next.size);
+      if (!changed) {
+        for (const id of next) { if (!prev.has(id)) { changed = true; break; } }
+      }
 
       if (boot) {
         const vis = getLS(LS.VIS, null);
@@ -1187,7 +1272,7 @@
           $('catchup-bar').classList.remove('hidden');
         }
         setLS(LS.VIS, { date: ST.today, ts: Date.now(), seen: [...next] });
-      } else {
+      } else if (changed) {
         const fresh = [...next].filter(id => !prev.has(id));
         if (fresh.length > 0) {
           fresh.forEach(id => ST.newIds.add(id));
@@ -1207,20 +1292,41 @@
       if (!ST.viewSlotId || (ST.viewSlotId !== 'standby' && !next.has(ST.viewSlotId))) {
         ST.viewSlotId = latestSlot.id; ST.blipIdx = 0;
         if (Date.now() > ST.holdUntil) ST.bpmTarget = latestSlot.baseBpm;
+        changed = true;
       }
-      renderCurrentTab();
+
+      if (changed) renderCurrentTab();
     }
 
-    function tickClock() {
+    /* 1 秒时钟：绝对禁止调用整页/局部 innerHTML 重绘，只改纯文本节点 */
+    function tickClockOnly() {
       const d = new Date();
-      $('clock-line').textContent = `${d.getFullYear()}.${pad2(d.getMonth()+1)}.${pad2(d.getDate())} ${WEEK_CN[d.getDay()]} · ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+      $('live-clock').textContent = `${d.getFullYear()}.${pad2(d.getMonth()+1)}.${pad2(d.getDate())} ${WEEK_CN[d.getDay()]} · ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+
+      // 仅在分钟变化或跨零点时检查解锁与倒计时文本
       if (dateKey(d) !== ST.today) {
-        initDayAndMemory(); loadTodaySchedule(); ST.viewSlotId = null;
-        syncRealTimeSlots(false);
+        initDayAndMemory();
+        loadTodaySchedule();
+        ST.viewSlotId = null;
+        evaluateRealTimeSlots(false, true);
         toast('零点已过 · 今日日程已更新', ST.theme);
         if (ST.cfg.aiOn && ST.cfg.apiKey.trim()) generateAiSchedule(true);
-      } else {
-        syncRealTimeSlots(false);
+        return;
+      }
+
+      // 增量更新今日轨迹页中未解锁倒计时文本（不销毁任何 DOM）
+      if (ST.tab === 'timeline') {
+        const nowM = curMins(d);
+        document.querySelectorAll('.tl-cd[data-slot-time]').forEach(el => {
+          el.textContent = formatCountdown(el.dataset.slotTime, nowM);
+        });
+      }
+
+      // 仅当真正有新时段到点时才增量触发解锁
+      if (ST.cfg.realTime) {
+        const nowM = curMins(d);
+        const shouldUnlockNew = ST.slots.some(s => !ST.unlockedIds.has(s.id) && toMins(s.time) <= nowM);
+        if (shouldUnlockNew) evaluateRealTimeSlots(false, false);
       }
     }
 
@@ -1228,8 +1334,8 @@
        七、可选 Gemini API 进阶动态引擎
        ========================================================================= */
     const SYS_PROMPT = `你是迟川（Cyrus），28岁，12月29日摩羯座，INTJ，新岚能源CEO（固-固态电池与新能源车）。每日晨泳，爱吃牛肉/刺身/海鲜，麸质过敏却馋面包，厨艺一般，热爱库布里克与《潜行者》，读《货币哲学》，私下偷偷织毛衣和养多肉。
-伴侣叫迟琰（琰琰）。只有你叫她“宝宝”或“琰琰”，她叫你“爸爸”。所有外人（陈序、孙遇、周墨教授、林助理、苏晚晴、温知夏、姜语汐、沈曼丽、LUMIÈRE顾问）都称呼她“迟琰”或“琰琰”。
-语气成熟、直接、护短、深情，严禁使用讽刺、酸言酸语或“刚还……现在倒……”式句式。面对她吃醋或失联时展现INTJ真实的慌乱（语速加快、逐条清晰交代边界）。必须严格只输出合法 JSON。`;
+伴侣叫迟琰（琰琰）。称呼铁律：只有你叫她“宝宝”或“琰琰”，她唤你“爸爸”；其他所有人（陈序、孙遇、周墨教授、林助理、苏晚晴、温知夏、姜语汐、沈曼丽）一律称呼她“迟琰”或“琰琰”，绝不混用“宝宝”。
+语气沉稳、直接、护短、深情，面对吃醋或失联时展现INTJ真实的慌乱（语速加快、逐条交代边界）。必须严格只输出合法 JSON。`;
 
     async function askGemini(prompt) {
       const key = ST.cfg.apiKey.trim();
@@ -1253,7 +1359,7 @@
 
     async function generateAiSchedule(silent = false) {
       const btn = $('api-gen');
-      if (btn) { btn.disabled = true; btn.textContent = '正在用 AI 生成今日 24 小时行程…'; }
+      if (btn) { btn.disabled = true; btn.textContent = '正在用 AI 生成今日全新 24H 行程…'; }
       if (!silent) $('api-msg').textContent = '正在连接 Gemini 生成今日 7 段行程…';
       try {
         const d = new Date();
@@ -1279,20 +1385,25 @@ x/y 范围 52-162，slots 必须 7 项。`;
           }))
         }));
         setLS(LS.AI + ST.today, j);
-        loadTodaySchedule(); ST.viewSlotId = null; syncRealTimeSlots(false);
-        unlockEgg('dual_core');
+        loadTodaySchedule(); ST.viewSlotId = null; evaluateRealTimeSlots(false, true);
         $('api-msg').innerHTML = `<span style="color:#4ade80">✓ 今日 AI 行程已上线：${esc(j.theme)}</span>`;
         toast('Gemini 今日行程已生成', j.theme);
       } catch (err) {
-        $('api-msg').innerHTML = `<span style="color:#fda4af">生成失败（已回退本地七天引擎）：${esc(err.message)}</span>`;
+        $('api-msg').innerHTML = `<span style="color:#ffa0a9">生成失败（已回退本地七天引擎）：${esc(err.message)}</span>`;
       } finally {
-        if (btn) { btn.disabled = false; btn.textContent = '✦ 用 AI 生成今日全新 24 小时行程'; }
+        if (btn) { btn.disabled = false; btn.textContent = '✦ AI 生成今日全新 24H 行程'; }
       }
     }
 
     /* =========================================================================
        八、远程查岗指令与自由腕表短讯处理
        ========================================================================= */
+    function checkNightEgg() {
+      const hr = new Date().getHours();
+      const slot = activeSlot();
+      if (hr >= 22 || hr < 6 || slot.id === 's6' || slot.id === 'standby') unlockEgg('night_check');
+    }
+
     function localReply(input, isCmd) {
       const slot = activeSlot();
       const rival = slot.blips.find(b => b.type === 'rival');
@@ -1334,9 +1445,9 @@ x/y 范围 52-162，slots 必须 7 项。`;
           };
         }
         if (input === 'offline') {
-          ST.mem.today.offline++; setLS(LS.MEM, ST.mem); unlockEgg('offline_soft');
+          ST.mem.today.offline++; setLS(LS.MEM, ST.mem); unlockEgg('offline_core');
           return {
-            bpm: 136, tag: '理性失守', userLabel: '（已模拟失联 / 暂不回应）',
+            bpm: 136, tag: '理性失守', userLabel: '（已开启模拟失联 / 暂不回应）',
             reply: '琰琰？怎么突然离线了，刚才那条没收到吗？是不是不舒服还是委屈了？别静音不理我，我拿上车钥匙了，三分钟内收不到回信我就直接回来找你。',
             voiceText: '（呼吸明显急促，冷静外壳彻底卸下）……宝宝，对不起，我知道我此刻失控了。但我真的怕这种突然联系不上你的虚无感。遇见你之后，我规划的所有未来都有你的位置。哪怕生气骂爸爸两句都行，千万别突然静音消失，好不好？',
             voiceSec: 16
@@ -1346,9 +1457,9 @@ x/y 范围 52-162，slots 必须 7 项。`;
       const txt = String(input);
       ST.mem.today.lastNote = txt.slice(0, 30); setLS(LS.MEM, ST.mem);
       if (/面包|吐司|可颂|多肉|熊童子|毛衣|围巾|潜行者|货币哲学|画室/.test(txt)) {
-        unlockEgg('soft_hobby');
+        unlockEgg('blueprint');
         return {
-          bpm: 104, tag: '柔软角落', userLabel: txt,
+          bpm: 104, tag: '蓝图守护', userLabel: txt,
           reply: '……这些私密的小习惯只有宝宝记得这么清楚。无麸质面包我会继续改配比，多肉养得很精神，毛衣和海边画室都在按蓝图推进。',
           voiceText: '（轻咳一声，带着被看穿的小窘迫）外人只看见我开会谈并购，只有琰琰知道我躲在书房养多肉、织毛衣。今晚回去给你汇报进度。',
           voiceSec: 11
@@ -1380,14 +1491,16 @@ x/y 范围 52-162，slots 必须 7 项。`;
     async function handleInteract(input, isCmd) {
       if (ST.aiBusy) return;
       if (!AUDIO.unlocked) enableAudioNow(true);
-      const sh = $('app-shell'); sh.classList.remove('buzz'); void sh.offsetWidth; sh.classList.add('buzz');
+      checkNightEgg();
 
+      const appEl = $('app'); appEl.classList.remove('buzz'); void appEl.offsetWidth; appEl.classList.add('buzz');
       const slot = activeSlot();
       let res = null;
+
       if (ST.cfg.aiOn && ST.cfg.apiKey.trim()) {
         ST.aiBusy = true; $('wrist-send').textContent = '…';
         try {
-          const map = { cold:'迟琰冷淡查岗：“忙你的，不用回我。”', baba:'迟琰软声叫你：“爸爸～”', jealous:'迟琰吃醋盘问：“雷达上你旁边那个人怎么回事，如实交代。”', report:'迟琰要求你立刻提交一次现场实时报备。', offline:'迟琰开启模拟失联/离线暂不回复，触发你害怕失去与遗忘的核心恐惧。' };
+          const map = { cold:'迟琰冷淡查岗：“忙你的，不用回我。”', baba:'迟琰软声叫你：“爸爸～”', jealous:'迟琰吃醋盘问：“雷达上你旁边那个人怎么回事，如实交代。”', report:'迟琰要求你立刻提交一次现场实时报备。', offline:'迟琰开启模拟失联/暂不回复，触发你害怕失去与遗忘的核心恐惧。' };
           const p = `当前时间：${hmNow()}，地点活动：${slot.time} ${slot.title}（${slot.loc}），实时心率：${Math.round(ST.bpmNow)} bpm，近场目标：${slot.blips.map(b=>`${b.name}(${b.role},${b.dist},波动${b.delta})`).join('、')}。昨日记忆：${JSON.stringify(ST.mem.yesterday)}。此刻互动：${isCmd ? map[input] : `迟琰发短讯：“${input}”`}。
 返回 JSON：{"reply":"2-3句腕表回复","voiceText":"2-3句口语语音","bpmDelta":45,"statusTag":"4字状态","proofTitle":"报备标题或空","proofDetail":"报备细节或空"}`;
           const ai = await askGemini(p);
@@ -1400,14 +1513,14 @@ x/y 范围 52-162，slots 必须 7 项。`;
             voiceSec: Math.max(7, Math.min(18, Math.round(String(ai.voiceText || '').length / 6))),
             proofTitle: String(ai.proofTitle || `${slot.time} · ${slot.title}`),
             proofDetail: String(ai.proofDetail || `${slot.loc} ｜ ${ai.reply || slot.rep}`),
-            userLabel: isCmd ? (input==='cold'?'忙你的，不用回我。':input==='baba'?'爸爸～':input==='jealous'?'雷达上旁边那个人怎么回事，如实交代。':input==='offline'?'（已模拟失联 / 暂不回应）':'') : input,
+            userLabel: isCmd ? (input==='cold'?'忙你的，不用回我。':input==='baba'?'爸爸～':input==='jealous'?'雷达上旁边那个人怎么回事，如实交代。':input==='offline'?'（已开启模拟失联 / 暂不回应）':'') : input,
             fromAi: true
           };
           if (input === 'baba' || (!isCmd && /爸爸/.test(input))) { ST.mem.today.baba++; unlockEgg('call_baba'); }
           if (input === 'cold' || input === 'jealous') { ST.mem.today.jealous++; unlockEgg('jealous_clear'); }
-          if (input === 'offline') { ST.mem.today.offline++; unlockEgg('offline_soft'); }
+          if (input === 'offline') { ST.mem.today.offline++; unlockEgg('offline_core'); }
           if (input === 'report') unlockEgg('proof_seal');
-          if (!isCmd) { ST.mem.today.lastNote = input.slice(0, 30); if (/面包|吐司|可颂|多肉|毛衣|围巾|潜行者|货币哲学|画室/.test(input)) unlockEgg('soft_hobby'); }
+          if (!isCmd) { ST.mem.today.lastNote = input.slice(0, 30); if (/面包|吐司|可颂|多肉|毛衣|围巾|潜行者|货币哲学|画室/.test(input)) unlockEgg('blueprint'); }
           setLS(LS.MEM, ST.mem);
         } catch (err) {
           toast('AI 暂不可用，已切回本地引擎', err.message);
@@ -1420,14 +1533,14 @@ x/y 范围 52-162，slots 必须 7 项。`;
       }
 
       AUDIO.micro('chime');
-      triggerBpmSpike(res.bpm, `${res.tag}：${(res.userLabel || res.proofTitle || '').slice(0, 14)}`, res.tag, res.bpm >= 120 ? 9 : 6);
+      triggerBpmSpike(res.bpm, `${res.tag}：${(res.userLabel || res.proofTitle || '').slice(0, 14)}`, res.tag, res.bpm >= 115 ? 9 : 6);
 
       const entry = {
         id: 'm_' + Date.now() + '_' + Math.floor(Math.random() * 999),
         time: hmNow(), isProof: !!res.isProof, bpm: res.bpm,
-        sender: res.fromAi ? '迟川 · AI动态同步' : '迟川 · 腕表同步',
+        sender: res.fromAi ? '迟川 · Gemini AI同步' : '迟川 · 腕表同步',
         userLabel: res.userLabel || '', proofTitle: res.proofTitle || '', proofDetail: res.proofDetail || '',
-        reply: res.reply, voiceText: res.voiceText, voiceSec: res.voiceSec || 10, revealed: false
+        reply: res.reply, voiceText: res.voiceText, voiceSec: res.voiceSec || 10
       };
       ST.day.feed.unshift(entry); if (ST.day.feed.length > 10) ST.day.feed.pop();
       ST.day.archive.unshift(entry); if (ST.day.archive.length > 24) ST.day.archive.pop();
@@ -1436,11 +1549,78 @@ x/y 范围 52-162，slots 必须 7 项。`;
     }
 
     /* =========================================================================
-       九、四大页面渲染与语音逐字播放
+       九、语音转文字永久停留引擎（Bug 3 彻底修复）与四大页面渲染
        ========================================================================= */
+    function voiceBlockHTML(uid, sec, txt) {
+      const st = voiceState[uid];
+      const isOpen = !!(st && st.open);
+      const isTyping = !!voiceTimers[uid];
+      const shownText = st ? (st.done ? st.text : st.cur || '') : '';
+      return `<div>
+        <button type="button" data-vuid="${uid}" data-vtxt="${esc(txt)}" class="voice-btn ${isTyping ? 'playing' : ''}">
+          <span class="waves"><i></i><i></i><i></i><i></i><i></i></span>
+          <span data-vlbl="${uid}" style="font-variant-numeric:tabular-nums">${sec}″ · ${isTyping ? '转写播放中' : isOpen ? '重听语音' : '点击听语音'}</span>
+        </button>
+        <div id="vb_${uid}" class="voice-box ${isOpen ? '' : 'hidden'}">
+          <div class="voice-box-hd">
+            <span>语音实时转写</span>
+            <button type="button" data-vclose="${uid}" class="voice-close-btn">收起</button>
+          </div>
+          <div id="vs_${uid}">${esc(shownText)}</div>
+        </div>
+      </div>`;
+    }
+
+    function startVoiceTranscript(uid, fullText) {
+      if (!AUDIO.unlocked) enableAudioNow(true);
+      AUDIO.micro('voice');
+
+      if (voiceTimers[uid]) { clearInterval(voiceTimers[uid]); delete voiceTimers[uid]; }
+      voiceState[uid] = { open: true, done: false, text: fullText, cur: '' };
+
+      const btn = document.querySelector(`[data-vuid="${uid}"]`);
+      const lbl = document.querySelector(`[data-vlbl="${uid}"]`);
+      const box = $('vb_' + uid);
+      const sp = $('vs_' + uid);
+      if (btn) btn.classList.add('playing');
+      if (lbl) lbl.textContent = lbl.textContent.replace(/·.*$/, '· 转写播放中');
+      if (box) box.classList.remove('hidden');
+      if (sp) sp.textContent = '';
+
+      let idx = 0;
+      voiceTimers[uid] = setInterval(() => {
+        idx += 2;
+        const slice = fullText.slice(0, idx);
+        voiceState[uid].cur = slice;
+        const liveSp = $('vs_' + uid);
+        if (liveSp) liveSp.textContent = slice;
+        if (idx >= fullText.length) {
+          clearInterval(voiceTimers[uid]);
+          delete voiceTimers[uid];
+          voiceState[uid].done = true;
+          voiceState[uid].cur = fullText;
+          const b2 = document.querySelector(`[data-vuid="${uid}"]`);
+          const l2 = document.querySelector(`[data-vlbl="${uid}"]`);
+          if (b2) b2.classList.remove('playing');
+          if (l2) l2.textContent = l2.textContent.replace(/·.*$/, '· 重听语音');
+        }
+      }, 30);
+    }
+
+    function closeVoiceTranscript(uid) {
+      if (voiceTimers[uid]) { clearInterval(voiceTimers[uid]); delete voiceTimers[uid]; }
+      if (voiceState[uid]) voiceState[uid].open = false;
+      const box = $('vb_' + uid);
+      const btn = document.querySelector(`[data-vuid="${uid}"]`);
+      const lbl = document.querySelector(`[data-vlbl="${uid}"]`);
+      if (box) box.classList.add('hidden');
+      if (btn) btn.classList.remove('playing');
+      if (lbl) lbl.textContent = lbl.textContent.replace(/·.*$/, '· 点击听语音');
+    }
+
     function syncHeaderState() {
       const aiReady = ST.cfg.aiOn && !!ST.cfg.apiKey.trim();
-      $('engine-pill').textContent = aiReady ? 'AI动态引擎' : '本地七天实时';
+      $('engine-badge').textContent = aiReady ? 'Gemini AI实时' : '本地七天实时';
       const mTxt = ST.cfg.realTime ? '实时同步' : '今日全览';
       $('mode-btn').textContent = mTxt;
       $('tl-mode-btn').textContent = mTxt;
@@ -1448,52 +1628,18 @@ x/y 范围 52-162，slots 必须 7 项。`;
 
       const curM = AUDIO_MODES.find(x => x.id === AUDIO.mode) || AUDIO_MODES[0];
       $('sound-btn').innerHTML = ic(AUDIO.unlocked && AUDIO.mode === 'mute' ? 'soundOff' : 'soundOn', 15);
-      $('sound-btn').classList.toggle('locked', !AUDIO.unlocked);
+      $('sound-btn').classList.toggle('awaiting', !AUDIO.unlocked);
       $('audio-banner').classList.toggle('hidden', AUDIO.unlocked || ST.bannerClosed);
       $('set-audio-badge').textContent = curM.label;
-      $('m-watch').textContent = AUDIO.unlocked ? `${curM.label} · 86%` : '在线 · 86%';
+      $('m-watch').textContent = `${AUDIO.unlocked ? curM.label : '在线'} · ${watchBattery()}%`;
     }
 
-    function renderSoundPop() {
-      $('pop-modes').innerHTML = AUDIO_MODES.map(m => `<button type="button" data-amode="${m.id}" class="mode-chip ${AUDIO.mode === m.id ? 'active' : ''}">${m.label}</button>`).join('');
-      $('pop-vol').value = ST.cfg.volume;
-      $('pop-vol-txt').textContent = `${ST.cfg.volume}%`;
-    }
-
-    function voiceCard(uid, sec, txt, rev) {
-      const playing = ST.voiceUid === uid;
-      return `<div>
-        <button type="button" data-vuid="${uid}" data-vtxt="${esc(txt)}" class="voice-btn ${playing ? 'playing' : ''}">
-          <span class="waves"><i></i><i></i><i></i><i></i><i></i></span>
-          <span style="font-variant-numeric:tabular-nums">${sec}″ · ${playing ? '播放中' : '点击听语音'}</span>
-        </button>
-        <div id="vb_${uid}" class="voice-txt ${rev ? '' : 'hidden'}">
-          <div style="font-size:9.5px;color:var(--gold);margin-bottom:2px">语音实时转写</div>
-          <span id="vs_${uid}">${rev ? esc(txt) : ''}</span>
-        </div>
-      </div>`;
-    }
-
-    function playVoice(uid, text) {
-      AUDIO.micro('click');
-      clearInterval(ST.voiceTimer);
-      ST.voiceUid = uid;
-      const raw = uid.replace(/^(fd|ar|tl)_/, '');
-      [...ST.day.feed, ...ST.day.archive].forEach(it => { if (it.id === raw) it.revealed = true; });
-      setLS(LS.DAY, ST.day);
-
-      document.querySelectorAll('[data-vuid]').forEach(b => b.classList.toggle('playing', b.dataset.vuid === uid));
-      const box = $('vb_' + uid), sp = $('vs_' + uid);
-      if (!box || !sp) return;
-      box.classList.remove('hidden'); sp.textContent = '';
-      let i = 0;
-      ST.voiceTimer = setInterval(() => {
-        i += 2; sp.textContent = text.slice(0, i);
-        if (i >= text.length) {
-          clearInterval(ST.voiceTimer); ST.voiceUid = null;
-          document.querySelectorAll('[data-vuid]').forEach(b => b.classList.remove('playing'));
-        }
-      }, 32);
+    function renderSoundDrawer() {
+      $('drawer-modes').innerHTML = AUDIO_MODES.map(m =>
+        `<button type="button" data-amode="${m.id}" class="mode-chip ${AUDIO.mode === m.id ? 'active' : ''}">${m.label}</button>`
+      ).join('');
+      $('drawer-vol').value = ST.cfg.volume;
+      $('drawer-vol-txt').textContent = `${ST.cfg.volume}%`;
     }
 
     function feedHTML(it, pre) {
@@ -1506,12 +1652,12 @@ x/y 范围 52-162，slots 必须 7 项。`;
           </div>
           <div class="amb-box" style="margin-top:8px">
             <div class="row-between" style="margin-bottom:4px">
-              <span style="font-weight:600;color:#f5f5f9">${esc(it.proofTitle)}</span>
+              <span style="font-weight:600;color:#f6f2ea">${esc(it.proofTitle)}</span>
               <span class="badge b-rose">♥ ${it.bpm} BPM</span>
             </div>
             <div>${esc(it.proofDetail)}</div>
           </div>
-          ${it.voiceText ? voiceCard(uid, it.voiceSec, it.voiceText, it.revealed) : ''}
+          ${it.voiceText ? voiceBlockHTML(uid, it.voiceSec, it.voiceText) : ''}
         </article>`;
       }
       return `<article class="card">
@@ -1519,21 +1665,52 @@ x/y 范围 52-162，slots 必须 7 项。`;
           <div style="display:flex;align-items:center;gap:7px">
             <span class="avatar-sm">迟</span>
             <span style="font-size:12px;font-weight:500">${esc(it.sender)}</span>
-            <span class="badge ${it.bpm >= 106 ? 'b-red' : 'b-dim'}">${it.bpm} bpm</span>
+            <span class="badge ${it.bpm >= 115 ? 'b-red' : 'b-dim'}">${it.bpm} bpm</span>
           </div>
           <span class="sec-sub" style="font-variant-numeric:tabular-nums">${esc(it.time)}</span>
         </div>
         ${it.userLabel ? `<div class="user-quote"><span style="color:var(--rose)">迟琰：</span>${esc(it.userLabel)}</div>` : ''}
         <div class="reply-txt">${esc(it.reply)}</div>
-        ${it.voiceText ? voiceCard(uid, it.voiceSec, it.voiceText, it.revealed) : ''}
+        ${it.voiceText ? voiceBlockHTML(uid, it.voiceSec, it.voiceText) : ''}
       </article>`;
     }
 
     function renderFeed() {
       $('live-feed').innerHTML = ST.day.feed.length
         ? ST.day.feed.map(it => feedHTML(it, 'fd')).join('')
-        : '<div class="card" style="text-align:center;color:var(--dim);font-size:11.5px;padding:18px 12px">开启贴耳心跳声后，点上方查岗指令听他心跳加速</div>';
+        : '<div class="card" style="text-align:center;color:var(--dim);font-size:11.5px;padding:18px 12px">开启拟真心跳声后，点击上方查岗指令或发短讯听他心跳加速</div>';
       if (ST.tab === 'archive') renderArchiveTab();
+    }
+
+    /* 仅更新 #radar-blips 光点层与详情卡，绝不触碰静态旋转的 .radar-sweep */
+    function renderRadarBlipsOnly() {
+      const slot = activeSlot();
+      const blips = slot.blips || [];
+      if (ST.blipIdx >= blips.length) ST.blipIdx = 0;
+      $('radar-cnt').textContent = `${blips.length} 近场目标`;
+
+      $('radar-blips').innerHTML = blips.map((b, i) => {
+        const sel = i === ST.blipIdx;
+        const fill = b.type === 'rival' ? '#e05865' : b.type === 'anchor' ? '#e6a69d' : b.type === 'gold' ? '#d6b57c' : '#9ca3af';
+        return `<g style="cursor:pointer" data-bidx="${i}">
+          ${sel ? `<circle cx="${b.x}" cy="${b.y}" r="11" fill="${fill}" fill-opacity="0.24" class="ping-ring"/>` : ''}
+          <circle cx="${b.x}" cy="${b.y}" r="16" fill="transparent"/>
+          <circle cx="${b.x}" cy="${b.y}" r="${sel ? 5.8 : 4.6}" fill="${fill}" stroke="#09090c" stroke-width="2"/>
+          <rect x="${b.x - 30}" y="${b.y + 8}" width="60" height="16" rx="8" fill="rgba(9,9,12,0.92)" stroke="${sel ? fill : 'rgba(255,255,255,0.14)'}" stroke-width="${sel ? 1.1 : 0.7}"/>
+          <text x="${b.x}" y="${b.y + 19}" text-anchor="middle" fill="${sel ? '#fff' : '#d8d4cc'}" font-size="8.6" font-weight="${sel ? 600 : 400}">${esc(b.name)}</text>
+        </g>`;
+      }).join('');
+
+      const cur = blips[ST.blipIdx];
+      if (cur) {
+        const bc = cur.type === 'rival' ? 'b-dim' : cur.type === 'anchor' ? 'b-rose' : 'b-gold';
+        $('blip-detail').innerHTML = `
+          <div class="row-between">
+            <div style="min-width:0"><strong style="color:#f6f2ea">${esc(cur.name)}</strong> <span class="sec-sub">${esc(cur.role)} · ${esc(cur.dist)}</span></div>
+            <span class="badge ${bc}">心率波动 ${esc(cur.delta)}</span>
+          </div>
+          <div style="margin-top:5px">${esc(cur.note)}</div>`;
+      }
     }
 
     function renderRadarTab() {
@@ -1542,6 +1719,7 @@ x/y 范围 52-162，slots 必须 7 项。`;
       $('ecg-loc-tag').textContent = `${slot.time} · ${slot.loc}`;
       $('m-sched').textContent = ST.theme.split('·')[1]?.trim() || ST.theme;
       $('m-prog').textContent = `${openCnt}/7 时段`;
+      $('m-watch').textContent = `${AUDIO.unlocked ? (AUDIO_MODES.find(x=>x.id===AUDIO.mode)?.label || '在线') : '在线'} · ${watchBattery()}%`;
 
       const cross = (slot.id === 's0' || openCnt <= 1) ? yesterdayHint() : '';
       $('loc-card').innerHTML = `
@@ -1549,87 +1727,51 @@ x/y 范围 52-162，slots 必须 7 项。`;
           <div style="display:flex;gap:8px;min-width:0">
             <span style="color:var(--gold);margin-top:2px;flex-shrink:0">${ic('pin', 16)}</span>
             <div style="min-width:0">
-              <div style="font-size:13.5px;font-weight:600;color:#f5f5f9">${esc(slot.title)}</div>
+              <div style="font-size:13.5px;font-weight:600;color:#f6f2ea">${esc(slot.title)}</div>
               <div style="font-size:11px;color:var(--gold);margin-top:3px">${esc(slot.loc)} · ${esc(slot.time)} 同步</div>
             </div>
           </div>
           <span class="badge b-dim">基线 ${slot.baseBpm}</span>
         </div>
         <div class="amb-box"><span style="color:var(--gold);font-weight:600">环境微收音：</span>${esc(slot.amb)}</div>
-        ${cross ? `<div class="amb-box" style="border-color:rgba(212,175,114,0.34);color:var(--gold-hi)">${esc(cross)}</div>` : ''}`;
+        ${cross ? `<div class="amb-box" style="border-color:rgba(214,181,124,0.34);color:var(--gold-hi)">${esc(cross)}</div>` : ''}`;
 
-      const blips = slot.blips || [];
-      if (ST.blipIdx >= blips.length) ST.blipIdx = 0;
-      $('radar-cnt').textContent = `${blips.length} 近场目标`;
-
-      const dots = blips.map((b, i) => {
-        const sel = i === ST.blipIdx;
-        const fill = b.type === 'rival' ? '#e8485c' : b.type === 'anchor' ? '#e89ba8' : b.type === 'gold' ? '#d4af72' : '#9ca3af';
-        return `<g style="cursor:pointer" data-bidx="${i}">
-          ${sel ? `<circle cx="${b.x}" cy="${b.y}" r="11" fill="${fill}" fill-opacity="0.25" class="ping-ring"/>` : ''}
-          <circle cx="${b.x}" cy="${b.y}" r="15" fill="transparent"/>
-          <circle cx="${b.x}" cy="${b.y}" r="${sel ? 5.8 : 4.6}" fill="${fill}" stroke="#070709" stroke-width="2"/>
-          <rect x="${b.x - 30}" y="${b.y + 8}" width="60" height="16" rx="8" fill="rgba(7,7,10,0.92)" stroke="${sel ? fill : 'rgba(255,255,255,0.14)'}" stroke-width="${sel ? 1.1 : 0.7}"/>
-          <text x="${b.x}" y="${b.y + 19}" text-anchor="middle" fill="${sel ? '#fff' : '#d4d4dc'}" font-size="8.6" font-weight="${sel ? 600 : 400}">${esc(b.name)}</text>
-        </g>`;
-      }).join('');
-
-      $('radar-svg').innerHTML = `
-        <defs><radialGradient id="swg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#d4af72" stop-opacity="0.24"/><stop offset="100%" stop-color="#d4af72" stop-opacity="0.01"/></radialGradient></defs>
-        <circle cx="105" cy="105" r="94" fill="#08080c" stroke="rgba(212,175,114,0.14)"/>
-        <circle cx="105" cy="105" r="63" fill="none" stroke="rgba(255,255,255,0.06)" stroke-dasharray="3 4"/>
-        <circle cx="105" cy="105" r="32" fill="none" stroke="rgba(212,175,114,0.18)"/>
-        <line x1="11" y1="105" x2="199" y2="105" stroke="rgba(255,255,255,0.045)"/>
-        <line x1="105" y1="11" x2="105" y2="199" stroke="rgba(255,255,255,0.045)"/>
-        <g class="radar-sweep"><path d="M105 105 L105 11 A94 94 0 0 1 172 38 Z" fill="url(#swg)"/><line x1="105" y1="105" x2="105" y2="11" stroke="rgba(212,175,114,0.48)" stroke-width="1.2"/></g>
-        <circle cx="105" cy="105" r="15" fill="#171410" stroke="rgba(212,175,114,0.6)" stroke-width="1.2"/>
-        <text x="105" y="108" text-anchor="middle" fill="#f0d7ac" font-size="8" font-weight="600" letter-spacing="0.8">CYRUS</text>
-        ${dots}`;
-
-      const cur = blips[ST.blipIdx];
-      if (cur) {
-        const bc = cur.type === 'rival' ? 'b-dim' : cur.type === 'anchor' ? 'b-rose' : 'b-gold';
-        $('blip-detail').innerHTML = `
-          <div class="row-between">
-            <div style="min-width:0"><strong style="color:#f5f5f9">${esc(cur.name)}</strong> <span class="sec-sub">${esc(cur.role)} · ${esc(cur.dist)}</span></div>
-            <span class="badge ${bc}">心率 ${esc(cur.delta)}</span>
-          </div>
-          <div style="margin-top:5px">${esc(cur.note)}</div>`;
-      }
+      renderRadarBlipsOnly();
       renderFeed();
     }
 
     function renderTimelineTab() {
       $('tl-theme').textContent = ST.theme;
       $('tl-sub').textContent = ST.cfg.realTime ? '严格跟随手机真实时间逐段解锁；点击已解锁行程可切回雷达页核验。' : '当前处于「今日全览」模式，今日全部 7 段行程均可提前查看。';
-      const nowM = curMins();
+      const cross = yesterdayHint();
+      $('tl-cross').textContent = cross;
+      $('tl-cross').classList.toggle('hidden', !cross);
 
+      const nowM = curMins();
       $('tl-list').innerHTML = ST.slots.map(s => {
         const open = ST.unlockedIds.has(s.id);
         const isAct = ST.viewSlotId === s.id;
         const isNew = ST.newIds.has(s.id);
         if (!open) {
-          const left = Math.max(1, toMins(s.time) - nowM);
-          const cd = left >= 60 ? `${Math.floor(left/60)} 小时 ${left%60} 分钟后解锁` : `${left} 分钟后解锁`;
           return `<div class="tl-item locked">
             <div class="row-between">
               <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums">${ic('lock', 13)}<span>${s.time} · 行程待解锁</span></div>
-              <span class="badge b-dim">${cd}</span>
+              <span class="badge b-dim tl-cd" data-slot-time="${s.time}">${formatCountdown(s.time, nowM)}</span>
             </div>
           </div>`;
         }
         return `<article class="tl-item ${isAct ? 'active' : ''}">
           <div class="row-between">
-            <div style="display:flex;align-items:center;gap:6px">
+            <div style="display:flex;align-items:center;gap:6px;min-width:0">
               <span style="font-size:12.5px;font-weight:600;color:var(--gold-hi);font-variant-numeric:tabular-nums">${s.time}</span>
-              <span style="font-size:13px;font-weight:600;color:#f5f5f9">${esc(s.title)}</span>
+              <span style="font-size:13px;font-weight:600;color:#f6f2ea;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.title)}</span>
               ${isNew ? '<span class="badge b-gold" style="padding:1px 6px;font-size:9px">NEW</span>' : ''}
             </div>
-            <button type="button" data-pick-slot="${s.id}" class="btn-pill" style="padding:3px 9px;font-size:10px">${isAct ? '正在追踪' : '去雷达看'}</button>
+            <button type="button" data-pick-slot="${s.id}" class="btn-pill" style="padding:3px 9px;font-size:10px;flex-shrink:0">${isAct ? '正在追踪' : '去雷达看'}</button>
           </div>
           <div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(s.loc)} · 基线 ${s.baseBpm} bpm</div>
           <div class="amb-box" style="margin-top:8px">${esc(s.rep)}</div>
-          ${voiceCard(`tl_${s.id}`, s.vSec, s.vTx, false)}
+          ${voiceBlockHTML(`tl_${ST.today}_${s.id}`, s.vSec, s.vTx)}
         </article>`;
       }).join('');
     }
@@ -1638,15 +1780,15 @@ x/y 范围 52-162，slots 必须 7 项。`;
       const peak = ST.day.peakBpm;
       $('arch-peak').textContent = `峰值 ${peak} bpm`;
       const rows = [
-        { l:'苏晚晴 / 温知夏 / 姜语汐试探', v:60, bg:'#5a5a66', hi:false },
-        { l:'平时商业谈判与静息基线', v:62, bg:'#6e6e7c', hi:false },
+        { l:'苏晚晴 / 温知夏 / 姜语汐试探', v:60, bg:'#5a5864', hi:false },
+        { l:'日常商业谈判与静息基线', v:62, bg:'#6e6b78', hi:false },
         { l:'想起迟琰 / 规划海边画室蓝图', v:82, bg:'linear-gradient(90deg,var(--gold),var(--rose))', hi:true },
         { l:'被迟琰查岗 / 软声叫爸爸峰值', v:peak, bg:'linear-gradient(90deg,var(--gold),var(--rose),var(--crimson))', hi:true, hot:true }
       ];
       $('arch-bars').innerHTML = rows.map(r => `<div>
         <div class="row-between" style="font-size:11.5px">
-          <span style="color:${r.hi ? '#f3f3f7' : 'var(--muted)'}">${r.l}</span>
-          <span style="font-variant-numeric:tabular-nums;font-weight:600;color:${r.hot ? '#ff9ba8' : r.hi ? 'var(--gold-hi)' : 'var(--muted)'}">${r.v} bpm</span>
+          <span style="color:${r.hi ? '#f5f1e9' : 'var(--muted)'}">${r.l}</span>
+          <span style="font-variant-numeric:tabular-nums;font-weight:600;color:${r.hot ? '#ffa0a9' : r.hi ? 'var(--gold-hi)' : 'var(--muted)'}">${r.v} bpm</span>
         </div>
         <div class="bar-track"><div class="bar-fill" style="width:${Math.min(100, Math.round(r.v/145*100))}%;background:${r.bg}"></div></div>
       </div>`).join('');
@@ -1661,7 +1803,7 @@ x/y 范围 52-162，slots 必须 7 项。`;
             <span style="font-size:11.5px;font-weight:600;color:${ok ? 'var(--gold-hi)' : 'var(--muted)'}">${ok ? '✦ ' : ''}${esc(e.name)}</span>
             ${ok ? `<span style="color:var(--gold)">${ic('check', 13)}</span>` : '<span style="font-size:9.5px;color:var(--dim)">未解锁</span>'}
           </div>
-          <div style="font-size:10.5px;color:${ok ? '#d2d2dc' : 'var(--dim)'};margin-top:4px;line-height:1.45">${esc(e.hint)}</div>
+          <div style="font-size:10.5px;color:${ok ? '#d8d4cc' : 'var(--dim)'};margin-top:4px;line-height:1.45">${esc(e.hint)}</div>
         </div>`;
       }).join('');
 
@@ -1670,11 +1812,11 @@ x/y 范围 52-162，slots 必须 7 项。`;
         <div style="min-width:0">
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums">${esc(s.time)}</span>
-            <span class="badge ${s.bpm >= 106 ? 'b-red' : 'b-gold'}" style="padding:1px 6px;font-size:9.5px">${esc(s.tag)}</span>
+            <span class="badge ${s.bpm >= 115 ? 'b-red' : 'b-gold'}" style="padding:1px 6px;font-size:9.5px">${esc(s.tag)}</span>
           </div>
-          <div style="font-size:11.5px;color:#e4e4ec;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.reason)}</div>
+          <div style="font-size:11.5px;color:#e6e2da;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.reason)}</div>
         </div>
-        <span style="font-size:15px;font-weight:500;font-variant-numeric:tabular-nums;color:${s.bpm >= 106 ? 'var(--crimson)' : 'var(--rose)'}">${s.bpm}</span>
+        <span style="font-size:15px;font-weight:500;font-variant-numeric:tabular-nums;color:${s.bpm >= 115 ? 'var(--crimson)' : 'var(--rose)'}">${s.bpm}</span>
       </div>`).join('');
 
       $('arch-feed-cnt').textContent = `${ST.day.archive.length} 条`;
@@ -1687,7 +1829,7 @@ x/y 范围 52-162，slots 必须 7 项。`;
       $('set-modes').innerHTML = AUDIO_MODES.map(m => {
         const act = AUDIO.mode === m.id;
         return `<button type="button" data-amode="${m.id}" class="cmd-btn ${act ? 'gold' : ''}">
-          <div class="cmd-t" style="color:${act ? 'var(--gold-hi)' : '#e6e6ee'}">${m.label}</div>
+          <div class="cmd-t" style="color:${act ? 'var(--gold-hi)' : '#eae6de'}">${m.label}</div>
           <div class="cmd-s">${m.desc}</div>
         </button>`;
       }).join('');
@@ -1712,7 +1854,7 @@ x/y 范围 52-162，slots 必须 7 项。`;
     }
 
     /* =========================================================================
-       十、导航、音频激活与全局事件绑定
+       十、导航、音效激活与全局事件绑定
        ========================================================================= */
     const NAV_META = [
       { id:'radar', label:'实时雷达' },
@@ -1723,9 +1865,9 @@ x/y 范围 52-162，slots 必须 7 项。`;
 
     function switchTab(id) {
       ST.tab = id;
-      $('sound-pop').classList.add('hidden');
+      $('sound-drawer').classList.add('hidden');
       NAV_META.forEach(n => $('tab-' + n.id).classList.toggle('hidden', n.id !== id));
-      document.querySelectorAll('#bottom-nav .nav-item').forEach(btn => {
+      document.querySelectorAll('nav.bottom-nav .nav-btn').forEach(btn => {
         const m = NAV_META.find(x => x.id === btn.dataset.nav);
         btn.classList.toggle('active', btn.dataset.nav === id);
         btn.innerHTML = `${ic(m.id, 19)}<span>${m.label}</span>`;
@@ -1740,67 +1882,74 @@ x/y 范围 52-162，slots 必须 7 项。`;
       AUDIO.setVolume((ST.cfg.volume ?? 80) / 100);
       AUDIO.unlock();
       syncHeaderState();
-      renderSoundPop();
+      renderSoundDrawer();
       if (!silent) {
         AUDIO.playBeat(ST.bpmNow);
-        toast('贴耳心跳声已开启', '已与 LIVE ECG 波峰同步 · 可随时在右上角切换模式');
+        toast('拟真心跳声效已开启', '已与 LIVE ECG 波峰同帧同步 · 右上角可切换模式');
       }
     }
 
     function pickAudioMode(m) {
       if (!AUDIO.unlocked) AUDIO.unlock();
       ST.cfg.audioMode = m; AUDIO.setMode(m); setLS(LS.CFG, ST.cfg);
-      syncHeaderState(); renderSoundPop();
+      syncHeaderState(); renderSoundDrawer();
       if (ST.tab === 'settings') renderSettingsTab();
       if (m !== 'mute') AUDIO.playBeat(ST.bpmNow);
     }
 
     function setVol(v) {
       ST.cfg.volume = Number(v); AUDIO.setVolume(ST.cfg.volume / 100); setLS(LS.CFG, ST.cfg);
-      $('pop-vol').value = $('set-vol').value = ST.cfg.volume;
-      $('pop-vol-txt').textContent = $('set-vol-txt').textContent = `${ST.cfg.volume}%`;
+      $('drawer-vol').value = $('set-vol').value = ST.cfg.volume;
+      $('drawer-vol-txt').textContent = $('set-vol-txt').textContent = `${ST.cfg.volume}%`;
     }
 
     function toggleTimeMode() {
       ST.cfg.realTime = !ST.cfg.realTime; setLS(LS.CFG, ST.cfg);
-      syncHeaderState(); syncRealTimeSlots(false);
+      syncHeaderState(); evaluateRealTimeSlots(false, true);
       toast(ST.cfg.realTime ? '已切回「实时同步」' : '已开启「今日全览」', ST.cfg.realTime ? '未到钟点行程已锁定待机' : '今日全部 7 段轨迹已解锁查看');
     }
 
     function bindEvents() {
-      $('heart-glyph').innerHTML = ic('heart', 15);
-      $('banner-ic').innerHTML = ic('soundOn', 16);
+      $('heart-icon').innerHTML = ic('heart', 15);
+      $('audio-banner-ic').innerHTML = ic('soundOn', 16);
 
-      $('audio-unlock-hit').onclick = () => enableAudioNow(false);
-      $('banner-close').onclick = () => { ST.bannerClosed = true; $('audio-banner').classList.add('hidden'); };
+      $('audio-banner-hit').onclick = () => enableAudioNow(false);
+      $('audio-banner-close').onclick = () => { ST.bannerClosed = true; $('audio-banner').classList.add('hidden'); };
       $('sound-btn').onclick = () => {
         if (!AUDIO.unlocked) return enableAudioNow(false);
-        renderSoundPop(); $('sound-pop').classList.toggle('hidden');
+        renderSoundDrawer(); $('sound-drawer').classList.toggle('hidden');
       };
-      $('pop-close').onclick = () => $('sound-pop').classList.add('hidden');
-      $('pop-modes').onclick = e => { const b = e.target.closest('[data-amode]'); if (b) pickAudioMode(b.dataset.amode); };
+      $('drawer-close').onclick = () => $('sound-drawer').classList.add('hidden');
+      $('drawer-modes').onclick = e => { const b = e.target.closest('[data-amode]'); if (b) pickAudioMode(b.dataset.amode); };
       $('set-modes').onclick = e => { const b = e.target.closest('[data-amode]'); if (b) pickAudioMode(b.dataset.amode); };
-      $('pop-vol').oninput = e => setVol(e.target.value);
+      $('drawer-vol').oninput = e => setVol(e.target.value);
       $('set-vol').oninput = e => setVol(e.target.value);
 
       $('mode-btn').onclick = $('tl-mode-btn').onclick = $('set-mode-btn').onclick = toggleTimeMode;
       $('catchup-ok').onclick = () => $('catchup-bar').classList.add('hidden');
-      document.querySelectorAll('#bottom-nav .nav-item').forEach(b => b.onclick = () => switchTab(b.dataset.nav));
+      document.querySelectorAll('nav.bottom-nav .nav-btn').forEach(b => b.onclick = () => switchTab(b.dataset.nav));
 
-      // 雷达光点
-      $('radar-svg').onclick = e => {
+      // 雷达光点点击：只重绘 #radar-blips，绝不影响 .radar-sweep 360° 旋转
+      $('radar-blips').onclick = e => {
         const g = e.target.closest('[data-bidx]'); if (!g) return;
         AUDIO.micro('click'); ST.blipIdx = Number(g.dataset.bidx);
         const cur = activeSlot().blips[ST.blipIdx];
         if (cur?.type === 'rival') unlockEgg('zero_rival');
         if (cur?.type === 'anchor') triggerBpmSpike(Math.max(ST.bpmNow, activeSlot().baseBpm + 14), '', '心动', 4);
-        renderRadarTab();
+        renderRadarBlipsOnly();
       };
 
-      // 查岗指令 + 今日轨迹切回雷达 + 语音播放托管
+      // 统一事件委托：查岗指令 / 去雷达看 / 语音播放 / 语音收起
       $('main-scroll').addEventListener('click', e => {
+        const vClose = e.target.closest('button[data-vclose]');
+        if (vClose) return closeVoiceTranscript(vClose.dataset.vclose);
+
+        const vBtn = e.target.closest('button[data-vuid]');
+        if (vBtn) return startVoiceTranscript(vBtn.dataset.vuid, vBtn.dataset.vtxt);
+
         const cmd = e.target.closest('button[data-cmd]');
         if (cmd) return handleInteract(cmd.dataset.cmd, true);
+
         const pick = e.target.closest('button[data-pick-slot]');
         if (pick) {
           AUDIO.micro('click');
@@ -1808,8 +1957,6 @@ x/y 范围 52-162，slots 必须 7 项。`;
           if (Date.now() > ST.holdUntil) ST.bpmTarget = activeSlot().baseBpm;
           return switchTab('radar');
         }
-        const vb = e.target.closest('button[data-vuid]');
-        if (vb) return playVoice(vb.dataset.vuid, vb.dataset.vtxt);
       });
 
       $('wrist-form').onsubmit = e => {
@@ -1819,14 +1966,18 @@ x/y 范围 52-162，slots 必须 7 项。`;
         handleInteract(v, false);
       };
 
-      // 心跳对比试听
+      // 键盘收起后顺手复核一次屏高
+      $('wrist-inp').addEventListener('blur', () => setTimeout(syncViewportHeight, 120));
+      $('api-key').addEventListener('blur', () => setTimeout(syncViewportHeight, 120));
+
+      // 对比试听按钮
       $('test-calm').onclick = () => {
-        unlockEgg('dual_core'); if (!AUDIO.unlocked) enableAudioNow(true);
+        if (!AUDIO.unlocked) enableAudioNow(true);
         $('test-calm').textContent = '试听中 (62 bpm)…';
         AUDIO.preview(62, () => { $('test-calm').textContent = '试听平静心跳 62 bpm'; });
       };
       $('test-panic').onclick = () => {
-        unlockEgg('dual_core'); if (!AUDIO.unlocked) enableAudioNow(true);
+        if (!AUDIO.unlocked) enableAudioNow(true);
         $('test-panic').textContent = '急促试听中 (126 bpm)…';
         AUDIO.preview(126, () => { $('test-panic').textContent = '试听急促心跳 126 bpm'; });
       };
@@ -1835,7 +1986,7 @@ x/y 范围 52-162，slots 必须 7 项。`;
       $('ai-switch').onclick = () => {
         ST.cfg.aiOn = !ST.cfg.aiOn; setLS(LS.CFG, ST.cfg);
         loadTodaySchedule(); renderSettingsTab();
-        toast(ST.cfg.aiOn ? 'AI 动态引擎已开启' : '已切回本地七天引擎', ST.cfg.apiKey ? '后续查岗将使用实时上下文回复' : '请在下方粘贴 API Key');
+        toast(ST.cfg.aiOn ? 'Gemini AI 动态引擎已开启' : '已切回本地七天引擎', ST.cfg.apiKey ? '后续查岗将使用实时上下文回复' : '请在下方粘贴 API Key');
       };
       $('key-eye').onclick = () => {
         const i = $('api-key'), s = i.type === 'password';
@@ -1843,7 +1994,7 @@ x/y 范围 52-162，slots 必须 7 项。`;
       };
       $('api-save').onclick = () => {
         ST.cfg.apiKey = $('api-key').value.trim(); ST.cfg.model = $('api-model').value;
-        setLS(LS.CFG, ST.cfg); syncHeaderState(); unlockEgg('dual_core');
+        setLS(LS.CFG, ST.cfg); syncHeaderState();
         $('api-msg').innerHTML = '<span style="color:var(--gold-hi)">✓ 配置已保存在本机 localStorage。</span>';
       };
       $('api-test').onclick = async () => {
@@ -1854,10 +2005,9 @@ x/y 范围 52-162，slots 必须 7 项。`;
         const t0 = performance.now();
         try {
           await askGemini('仅返回 {"ok":true}');
-          unlockEgg('dual_core');
           $('api-msg').innerHTML = `<span style="color:#4ade80">✓ 连接成功（${Math.round(performance.now() - t0)} ms）</span>`;
         } catch (err) {
-          $('api-msg').innerHTML = `<span style="color:#fda4af">✕ 连接失败：${esc(err.message)}</span>`;
+          $('api-msg').innerHTML = `<span style="color:#ffa0a9">✕ 连接失败：${esc(err.message)}</span>`;
         } finally {
           $('api-test').disabled = false; $('api-test').textContent = '测试连接';
         }
@@ -1868,35 +2018,38 @@ x/y 范围 52-162，slots 必须 7 项。`;
         generateAiSchedule(false);
       };
 
-      // 两步安全重置（无 confirm）
+      // 两步安全重置（无 alert/confirm）
       $('reset-btn').onclick = () => {
         if (!ST.resetArmed) {
           ST.resetArmed = true; $('reset-btn').textContent = '再次点击确认重置（保留 API 密钥与音量）';
-          setTimeout(() => { ST.resetArmed = false; if ($('reset-btn')) $('reset-btn').textContent = '重置互动记录与彩蛋进度'; }, 4000);
+          setTimeout(() => { ST.resetArmed = false; if ($('reset-btn')) $('reset-btn').textContent = '重置今日记忆与彩蛋进度'; }, 4000);
           return;
         }
         ST.resetArmed = false;
+        Object.keys(voiceTimers).forEach(k => { clearInterval(voiceTimers[k]); delete voiceTimers[k]; });
+        Object.keys(voiceState).forEach(k => delete voiceState[k]);
         [LS.DAY, LS.MEM, LS.VIS, LS.AI + ST.today].forEach(k => localStorage.removeItem(k));
         ST.mem = { lastDate:'', yesterday:{ jealous:0, baba:0, offline:0, lastNote:'' }, today:{ date:ST.today, jealous:0, baba:0, offline:0, lastNote:'' } };
         initDayAndMemory(); loadTodaySchedule(); ST.viewSlotId = null;
-        syncRealTimeSlots(false); renderSettingsTab();
-        $('reset-btn').textContent = '重置互动记录与彩蛋进度';
-        toast('互动记录与彩蛋已重置', '你的 API Key 与声效偏好已保留');
+        evaluateRealTimeSlots(false, true); renderSettingsTab();
+        $('reset-btn').textContent = '重置今日记忆与彩蛋进度';
+        toast('今日记忆与彩蛋已重置', '你的 API Key 与声效偏好已保留');
       };
     }
 
     window.onload = function () {
+      syncViewportHeight();
       AUDIO.setMode(ST.cfg.audioMode || 'lubdub');
       AUDIO.setVolume((ST.cfg.volume ?? 80) / 100);
       initDayAndMemory();
       loadTodaySchedule();
       bindEvents();
-      syncRealTimeSlots(true);
+      evaluateRealTimeSlots(true, true);
       const b0 = activeSlot().baseBpm;
       ST.bpmNow = b0; ST.bpmTarget = b0;
       syncHeaderState();
-      tickClock();
-      setInterval(tickClock, 1000);
+      tickClockOnly();
+      setInterval(tickClockOnly, 1000);
       switchTab('radar');
       ECG.init();
       planBeat();

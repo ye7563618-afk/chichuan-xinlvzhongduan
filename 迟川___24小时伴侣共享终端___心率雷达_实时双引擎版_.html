@@ -1,0 +1,2006 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="迟川雷达" />
+  <meta name="theme-color" content="#060608" />
+  <link rel="apple-touch-icon" href="icon.jpg" />
+  <link rel="icon" href="icon.jpg" />
+  <title>迟川 · 24H 伴侣共享终端 & 心率雷达</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg: #060608; --card: #0e0f13; --gold: #d4af37; --rose: #e89b93; --crimson: #ff3b5c;
+      --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+    input, textarea, select { user-select: text; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%; background: var(--bg); color: #f4f4f5;
+      overflow: hidden; font-family: "Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+    }
+    .app-shell {
+      position: relative; width: 100%; max-width: 430px; height: 100dvh; margin: 0 auto;
+      display: flex; flex-direction: column; overflow: hidden; background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 80% 34% at 50% 0%, rgba(212,175,55,0.065), transparent 68%),
+        radial-gradient(ellipse 70% 28% at 50% 100%, rgba(255,59,92,0.045), transparent 72%);
+    }
+    @media (min-width: 500px) {
+      body { padding: 12px 0; }
+      .app-shell {
+        height: min(868px, 95dvh); border-radius: 42px;
+        border: 1px solid rgba(212,175,55,0.18); box-shadow: 0 32px 90px rgba(0,0,0,0.92);
+      }
+    }
+    .no-sb { scrollbar-width: none; -ms-overflow-style: none; }
+    .no-sb::-webkit-scrollbar { display: none; }
+    .lux-card {
+      background: linear-gradient(160deg, rgba(18,19,25,0.94), rgba(11,12,16,0.97));
+      border: 1px solid rgba(212,175,55,0.16); backdrop-filter: blur(14px);
+    }
+    .gold-card {
+      background: linear-gradient(155deg, rgba(35,29,18,0.92), rgba(14,13,12,0.97));
+      border: 1px solid rgba(212,175,55,0.36);
+    }
+    @keyframes ecgCrimson {
+      0%,100% { box-shadow: 0 0 0 1px rgba(255,59,92,0.35), 0 0 22px rgba(255,59,92,0.14); }
+      50% { box-shadow: 0 0 0 1px rgba(255,59,92,0.75), 0 0 34px rgba(255,59,92,0.32); }
+    }
+    .ecg-crimson { animation: ecgCrimson 1.3s ease-in-out infinite; border-color: rgba(255,59,92,0.55) !important; }
+    .ecg-rose { border-color: rgba(232,155,147,0.45) !important; box-shadow: 0 0 22px rgba(232,155,147,0.12); }
+    @keyframes radarSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .radar-sweep { transform-origin: 115px 115px; animation: radarSpin 4.6s linear infinite; }
+    @keyframes pingSlow { 0% { transform: scale(0.85); opacity: 0.78; } 100% { transform: scale(2.1); opacity: 0; } }
+    .ping-dot { transform-box: fill-box; transform-origin: center; animation: pingSlow 2.2s ease-out infinite; }
+    @keyframes wave { 0%,100% { transform: scaleY(0.35); opacity: 0.55; } 50% { transform: scaleY(1.25); opacity: 1; } }
+    .v-play .vb { animation: wave 0.62s ease-in-out infinite; }
+    .v-play .vb:nth-child(2){animation-delay:.1s} .v-play .vb:nth-child(3){animation-delay:.2s}
+    .v-play .vb:nth-child(4){animation-delay:.3s} .v-play .vb:nth-child(5){animation-delay:.4s}
+    @keyframes buzz { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-3px)} 75%{transform:translateX(3px)} }
+    .buzz { animation: buzz 0.28s ease; }
+    .toast-bar { transform: translateY(-150%); opacity: 0; transition: transform .36s cubic-bezier(.22,1,.36,1), opacity .26s; }
+    .toast-bar.show { transform: translateY(0); opacity: 1; }
+  </style>
+</head>
+<body>
+  <div id="shell" class="app-shell">
+    <!-- 顶部真实时钟与双引擎状态栏（无假信号条，严格适配 iOS 刘海/灵动岛安全区） -->
+    <header class="shrink-0 px-4 pb-2.5 border-b border-[rgba(212,175,55,0.14)] bg-[#08090c]/92 backdrop-blur-xl z-30" style="padding-top:max(var(--sat), 12px)">
+      <div class="flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <div class="flex items-center gap-1.5">
+            <span class="relative flex h-2 w-2 shrink-0">
+              <span id="dotPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#d4af37] opacity-75"></span>
+              <span id="dotCore" class="relative inline-flex rounded-full h-2 w-2 bg-[#d4af37]"></span>
+            </span>
+            <span class="text-[11px] font-semibold tracking-[0.16em] text-zinc-100 truncate">CYRUS · 伴侣终端</span>
+            <span id="enginePill" class="px-1.5 py-[1px] rounded-full text-[9.5px] font-medium bg-[#d4af37]/15 text-[#ead082] border border-[#d4af37]/30 shrink-0">本地七天实时</span>
+          </div>
+          <div id="liveClock" class="text-[11px] text-zinc-400 tabular-nums mt-1">2026.11.24 星期二 · 14:07:00</div>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <!-- 实时同步 / 今日全览 快捷切换 -->
+          <button id="modeToggleBtn" type="button" class="px-2.5 py-1.5 rounded-full text-[10.5px] font-medium border border-[rgba(212,175,55,0.28)] bg-white/[0.04] text-[#ead082] active:scale-95 transition">实时同步</button>
+          <button id="soundToggleTop" type="button" aria-label="音效开关" class="w-8 h-8 rounded-full border border-white/10 bg-white/[0.04] flex items-center justify-center text-[#d4af37] active:scale-90 transition"></button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 顶部悬浮提示条（新时段解锁 / 彩蛋解锁 / AI状态） -->
+    <div class="absolute left-3.5 right-3.5 z-50 pointer-events-none" style="top:calc(max(var(--sat), 12px) + 56px)">
+      <div id="toastBar" class="toast-bar rounded-2xl bg-[#13141a]/95 backdrop-blur-xl border border-[#d4af37]/40 px-3.5 py-2.5 shadow-2xl flex items-center gap-2.5">
+        <span class="text-[#d4af37] text-xs shrink-0">✦</span>
+        <div class="min-w-0 flex-1">
+          <div id="toastTitle" class="text-[11px] font-semibold text-[#f1da93] truncate"></div>
+          <div id="toastSub" class="text-[11px] text-zinc-300 truncate mt-0.5"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主内容滚动画布 -->
+    <main id="mainScroll" class="flex-1 overflow-y-auto no-sb relative">
+      <!-- 离线补发同步横幅（可关闭） -->
+      <div id="catchupBanner" class="hidden mx-4 mt-3 rounded-2xl gold-card px-3.5 py-2.5 flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <div id="catchupTitle" class="text-[11.5px] font-semibold text-[#f1da93]">离线期间同步了新轨迹与报备</div>
+          <div id="catchupSub" class="text-[10.5px] text-zinc-300 mt-0.5 truncate"></div>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button id="catchupViewBtn" type="button" class="px-2.5 py-1 rounded-full bg-[#d4af37] text-zinc-950 text-[10.5px] font-semibold active:scale-95">查看</button>
+          <button id="catchupCloseBtn" type="button" class="w-6 h-6 rounded-full bg-white/10 text-zinc-300 text-[11px]">✕</button>
+        </div>
+      </div>
+
+      <!-- ==================== TAB 1: 实时雷达 ==================== -->
+      <section id="view-radar" class="px-4 pt-3 pb-6 space-y-3.5">
+        <!-- 1. 医疗级动态 ECG 面板 -->
+        <div id="ecgCard" class="lux-card rounded-[24px] p-3.5 transition-all duration-300">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] tracking-[0.16em] text-zinc-400 uppercase">Live ECG</span>
+              <span id="ecgStatusTag" class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#d4af37]/15 text-[#ead082]">绝对冷静</span>
+            </div>
+            <span id="ecgSlotHint" class="text-[10.5px] text-zinc-400 tabular-nums">同步当前时段</span>
+          </div>
+          <div class="grid grid-cols-12 gap-2.5 items-center">
+            <div class="col-span-8 relative h-[90px] rounded-2xl bg-[#050608] border border-white/[0.06] overflow-hidden">
+              <canvas id="ecgCanvas" class="w-full h-full block"></canvas>
+              <span class="absolute bottom-1.5 left-2.5 text-[9px] text-zinc-500 tracking-wider pointer-events-none">LEAD II · 25mm/s</span>
+            </div>
+            <div class="col-span-4 flex flex-col items-end justify-center pr-0.5">
+              <span id="bpmReadout" class="text-[40px] font-light leading-none tabular-nums text-[#d4af37] transition-colors">60</span>
+              <span class="text-[9.5px] tracking-[0.16em] text-zinc-500 mt-1">BPM · 心率</span>
+              <span id="bpmDeltaTag" class="text-[10.5px] text-zinc-400 tabular-nums mt-1">基线 60</span>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mt-2.5 pt-2.5 border-t border-white/[0.06]">
+            <div class="rounded-xl bg-white/[0.025] px-2.5 py-1.5">
+              <div class="text-[9.5px] text-zinc-500">当前日程</div>
+              <div id="metricTheme" class="text-[11.5px] font-medium text-zinc-200 truncate mt-0.5">加载中</div>
+            </div>
+            <div class="rounded-xl bg-white/[0.025] px-2.5 py-1.5">
+              <div class="text-[9.5px] text-zinc-500">解锁进度</div>
+              <div id="metricUnlock" class="text-[11.5px] font-medium text-[#ead082] tabular-nums mt-0.5">0/7 时段</div>
+            </div>
+            <div class="rounded-xl bg-white/[0.025] px-2.5 py-1.5">
+              <div class="text-[9.5px] text-zinc-500">腕表状态</div>
+              <div id="metricWatch" class="text-[11.5px] font-medium text-zinc-200 mt-0.5">在线 · 86%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. 当前活动与位置卡 + 环境微收音 + 跨日记忆提示 -->
+        <div id="activeSlotCard" class="lux-card rounded-[24px] p-3.5 space-y-2.5"></div>
+
+        <!-- 3. 战术近场雷达 -->
+        <div class="lux-card rounded-[24px] p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-[12.5px] font-medium text-zinc-100">战术近场雷达</div>
+              <div class="text-[10.5px] text-zinc-500 mt-0.5">轻触光点核验距离、心率波动与现场微收音</div>
+            </div>
+            <span id="radarCountTag" class="px-2 py-0.5 rounded-full bg-white/[0.05] text-[10px] text-zinc-400 tabular-nums">0 目标</span>
+          </div>
+          <div class="flex justify-center py-0.5">
+            <svg id="radarSvg" viewBox="0 0 230 230" class="w-[216px] h-[216px] max-w-full overflow-visible"></svg>
+          </div>
+          <div id="radarDetail" class="rounded-2xl bg-[#090a0e] border border-white/[0.07] p-3 text-[12px] leading-relaxed"></div>
+        </div>
+
+        <!-- 4. 远程查岗控制台（5大指令 + 自由腕表短讯） -->
+        <div class="lux-card rounded-[24px] p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[12.5px] font-medium text-zinc-100">远程查岗控制台</span>
+            <span id="cmdEngineNote" class="text-[10px] text-[#d4af37]">实时联动心率</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" data-cmd="cold" class="px-3 py-2.5 rounded-2xl bg-[#1f1217] border border-[#ff3b5c]/30 text-left active:scale-[.97] transition">
+              <div class="text-[12px] font-medium text-rose-200">冷淡查岗</div>
+              <div class="text-[10px] text-rose-300/70 mt-0.5">忙你的，不用回我</div>
+            </button>
+            <button type="button" data-cmd="baba" class="px-3 py-2.5 rounded-2xl bg-[#221719] border border-[#e89b93]/35 text-left active:scale-[.97] transition">
+              <div class="text-[12px] font-medium text-[#f7c5bf]">软声叫爸爸</div>
+              <div class="text-[10px] text-[#e89b93]/80 mt-0.5">直击冷面防线</div>
+            </button>
+            <button type="button" data-cmd="jealous" class="px-3 py-2.5 rounded-2xl bg-[#21131a] border border-[#ff3b5c]/32 text-left active:scale-[.97] transition">
+              <div class="text-[12px] font-medium text-rose-200">吃醋质问</div>
+              <div class="text-[10px] text-rose-300/70 mt-0.5">核验身旁异性边界</div>
+            </button>
+            <button type="button" data-cmd="report" class="px-3 py-2.5 rounded-2xl bg-[#1d1912] border border-[#d4af37]/35 text-left active:scale-[.97] transition">
+              <div class="text-[12px] font-medium text-[#f1da93]">要求报备</div>
+              <div class="text-[10px] text-[#d4af37]/80 mt-0.5">生成实时位置与心跳凭证</div>
+            </button>
+          </div>
+          <button type="button" data-cmd="offline" class="w-full px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-[#271018] via-[#1b0e14] to-[#271018] border border-[#ff3b5c]/45 flex items-center justify-between active:scale-[.98] transition">
+            <div class="text-left">
+              <div class="text-[12px] font-medium text-rose-200">模拟失联（暂不回应）</div>
+              <div class="text-[10px] text-rose-300/70 mt-0.5">触发 INTJ 脆弱核心 · 132+ bpm 绯红警报与诚恳坦白</div>
+            </div>
+            <span class="px-2 py-0.5 rounded-full bg-[#ff3b5c]/20 text-[#ff869a] text-[10px] font-semibold shrink-0 ml-2">高能</span>
+          </button>
+
+          <form id="watchForm" class="flex items-center gap-2 pt-1">
+            <input id="watchInp" type="text" autocomplete="off" placeholder="给迟川腕表发加密短讯…（试试：面包/多肉/毛衣/潜行者）" class="flex-1 rounded-full bg-[#07080b] border border-white/[0.11] px-3.5 py-2.5 text-[12px] text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-[#d4af37]/50" />
+            <button id="watchSendBtn" type="submit" class="px-4 py-2.5 rounded-full bg-[#d4af37] text-zinc-950 text-[12px] font-semibold active:scale-95 transition shrink-0">发送</button>
+          </form>
+        </div>
+
+        <!-- 5. 腕表实时回应流 -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between px-1">
+            <span class="text-[11.5px] font-medium text-zinc-300">迟川腕表实时回应</span>
+            <span class="text-[10px] text-zinc-500">轻触语音条展开逐字转写</span>
+          </div>
+          <div id="watchFeed" class="space-y-2.5"></div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB 2: 今日轨迹 ==================== -->
+      <section id="view-timeline" class="hidden px-4 pt-3 pb-6 space-y-3">
+        <div class="gold-card rounded-[22px] p-3.5 flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <div id="tlHeaderDate" class="text-[11px] text-[#d4af37] font-semibold tracking-wider">今日轨迹</div>
+            <div id="tlHeaderTheme" class="text-[13.5px] font-medium text-zinc-100 mt-0.5 truncate">加载中…</div>
+          </div>
+          <span id="tlModeBadge" class="px-2.5 py-1 rounded-full bg-black/40 border border-[#d4af37]/30 text-[10.5px] text-[#ead082] shrink-0">实时锁</span>
+        </div>
+        <div id="timelineList" class="space-y-3"></div>
+      </section>
+
+      <!-- ==================== TAB 3: 心率档案 ==================== -->
+      <section id="view-archive" class="hidden px-4 pt-3 pb-6 space-y-3.5">
+        <div class="gold-card rounded-[24px] p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-[10px] tracking-[0.18em] text-[#d4af37] uppercase">Biometric Contrast</div>
+              <div class="text-[14.5px] font-semibold text-zinc-100 mt-0.5">冷静基线 vs 迟琰触发峰值</div>
+            </div>
+            <span id="archPeakBadge" class="px-2.5 py-1 rounded-full bg-[#ff3b5c]/20 text-[#ff8fa2] text-[11px] font-semibold tabular-nums">峰值 124</span>
+          </div>
+          <div id="archBars" class="space-y-2.5"></div>
+        </div>
+
+        <!-- 8 个隐藏生物体征彩蛋 -->
+        <div class="lux-card rounded-[24px] p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-[13px] font-medium text-[#f1da93]">体征彩蛋图鉴</div>
+              <div class="text-[10.5px] text-zinc-500 mt-0.5">探索雷达、查岗与实时轨迹即可解锁</div>
+            </div>
+            <span id="eggProgressTxt" class="text-[12.5px] font-semibold text-[#d4af37] tabular-nums">0 / 8</span>
+          </div>
+          <div class="w-full h-1.5 rounded-full bg-white/[0.08] overflow-hidden">
+            <div id="eggProgressBar" class="h-full bg-gradient-to-r from-[#d4af37] to-[#ff3b5c] transition-all duration-500" style="width:0%"></div>
+          </div>
+          <div id="eggGrid" class="grid grid-cols-2 gap-2"></div>
+        </div>
+
+        <!-- 实时心率波动日志 -->
+        <div class="lux-card rounded-[24px] p-4 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[13px] font-medium text-zinc-100">实时心率波动日志</span>
+            <span id="bpmLogCount" class="text-[10.5px] text-zinc-500 tabular-nums">0 条</span>
+          </div>
+          <div id="bpmLogList" class="space-y-2"></div>
+        </div>
+
+        <!-- 语音与报备归档 -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between px-1">
+            <span class="text-[13px] font-medium text-zinc-100">语音报备归档库</span>
+            <span id="voiceArchiveCount" class="text-[10.5px] text-zinc-500 tabular-nums">0 条</span>
+          </div>
+          <div id="voiceArchiveList" class="space-y-2.5"></div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB 4: 终端设置 ==================== -->
+      <section id="view-settings" class="hidden px-4 pt-3 pb-6 space-y-3.5">
+        <!-- Gemini API 进阶引擎配置卡片 -->
+        <div class="gold-card rounded-[24px] p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-[13.5px] font-semibold text-[#f1da93]">Gemini API 进阶引擎</div>
+              <div class="text-[10.5px] text-zinc-400 mt-0.5">开启后每日自动生成新日程，查岗支持上下文实时对话</div>
+            </div>
+            <button id="aiSwitchBtn" type="button" class="w-12 h-6 rounded-full relative transition bg-white/15 shrink-0">
+              <i id="aiSwitchKnob" class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-zinc-950 transition-transform"></i>
+            </button>
+          </div>
+
+          <div class="space-y-2.5 pt-1">
+            <div>
+              <label class="block text-[11px] text-zinc-300 mb-1">Gemini API Key（仅存本地）</label>
+              <div class="flex gap-1.5">
+                <input id="apiKeyInp" type="password" autocomplete="off" placeholder="粘贴你的 AIzaSy... 免费密钥" class="flex-1 rounded-xl bg-black/50 border border-white/12 px-3 py-2 text-[12px] text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-[#d4af37]/60" />
+                <button id="toggleKeyEye" type="button" class="px-3 rounded-xl bg-white/[0.07] border border-white/10 text-[11px] text-zinc-300">显示</button>
+              </div>
+              <p class="text-[10px] text-[#d4af37]/85 mt-1">密钥仅保存在你的手机本地，绝不上传第三方；断网或留空时自动无感切回本地七天引擎。</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[11px] text-zinc-300 mb-1">模型选择</label>
+                <select id="modelSelect" class="w-full rounded-xl bg-black/60 border border-white/12 px-2.5 py-2 text-[12px] text-zinc-100 focus:outline-none focus:border-[#d4af37]/60">
+                  <option value="gemini-2.5-flash">gemini-2.5-flash (推荐)</option>
+                  <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                  <option value="custom">自定义模型名称…</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] text-zinc-300 mb-1">API Base URL</label>
+                <input id="baseUrlInp" type="text" placeholder="https://generativelanguage.googleapis.com" class="w-full rounded-xl bg-black/50 border border-white/12 px-2.5 py-2 text-[11.5px] text-zinc-200 focus:outline-none focus:border-[#d4af37]/60" />
+              </div>
+            </div>
+
+            <div id="customModelWrap" class="hidden">
+              <label class="block text-[11px] text-zinc-300 mb-1">自定义模型名</label>
+              <input id="customModelInp" type="text" placeholder="例如 gemini-2.5-flash-lite" class="w-full rounded-xl bg-black/50 border border-white/12 px-3 py-2 text-[12px] text-zinc-100 focus:outline-none focus:border-[#d4af37]/60" />
+            </div>
+
+            <div class="flex gap-2 pt-0.5">
+              <button id="saveApiBtn" type="button" class="flex-1 py-2.5 rounded-xl bg-[#d4af37] text-zinc-950 text-[12px] font-semibold active:scale-95 transition">保存配置</button>
+              <button id="testApiBtn" type="button" class="flex-1 py-2.5 rounded-xl bg-white/[0.08] border border-white/12 text-zinc-100 text-[12px] font-medium active:scale-95 transition">测试连接</button>
+            </div>
+            <button id="regenAiBtn" type="button" class="w-full py-2.5 rounded-xl bg-[#1e1a12] border border-[#d4af37]/40 text-[#f1da93] text-[12px] font-medium active:scale-[.98] transition">✦ 用 AI 生成今日全新 24 小时行程</button>
+            <div id="apiStatusMsg" class="text-[11px] text-zinc-400 leading-relaxed min-h-[16px]"></div>
+          </div>
+        </div>
+
+        <!-- 实时同步与偏好开关 -->
+        <div class="lux-card rounded-[24px] divide-y divide-white/[0.07]">
+          <div class="p-4 flex items-center justify-between gap-3">
+            <div>
+              <div class="text-[13px] text-zinc-100">时间推进模式</div>
+              <div class="text-[10.5px] text-zinc-500 mt-0.5">「实时同步」严格按当前时钟解锁；「今日全览」可提前查看</div>
+            </div>
+            <button id="setModeBtn" type="button" class="px-3 py-1.5 rounded-full text-[11px] font-medium bg-[#d4af37]/15 border border-[#d4af37]/35 text-[#f1da93] shrink-0">实时同步</button>
+          </div>
+          <div class="p-4 flex items-center justify-between gap-3">
+            <div>
+              <div class="text-[13px] text-zinc-100">心跳与腕表提示音</div>
+              <div class="text-[10.5px] text-zinc-500 mt-0.5">纯本地 Web Audio 合成轻音效</div>
+            </div>
+            <button id="setSoundBtn" type="button" class="w-11 h-6 rounded-full relative transition bg-[#d4af37] shrink-0">
+              <i id="setSoundKnob" class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-zinc-950 transition-transform translate-x-5"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- 跨日记忆检视卡 -->
+        <div class="lux-card rounded-[24px] p-4 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[13px] font-medium text-zinc-100">跨日记忆档案</span>
+            <span class="text-[10.5px] text-[#d4af37]">次日早安自动延续</span>
+          </div>
+          <div id="memoryViewer" class="text-[11.5px] text-zinc-300 space-y-1.5 leading-relaxed"></div>
+        </div>
+
+        <!-- 重置本地数据（两步安全确认，无 confirm 弹窗） -->
+        <button id="resetBtn" type="button" class="w-full py-3 rounded-2xl bg-[#1a1014] border border-[#ff3b5c]/30 text-[12px] text-rose-200 active:scale-[.98] transition">重置所有本地缓存与记录</button>
+      </section>
+    </main>
+
+    <!-- 底部 4 标签导航栏（适配 iOS 底部安全区） -->
+    <nav class="shrink-0 border-t border-[rgba(212,175,55,0.14)] bg-[#08090c]/95 backdrop-blur-xl px-2.5 pt-2 z-30" style="padding-bottom:max(var(--sab), 10px)">
+      <div class="grid grid-cols-4 gap-1">
+        <button type="button" data-nav="radar" class="nav-item py-1.5 rounded-2xl flex flex-col items-center gap-1 transition active:scale-95"></button>
+        <button type="button" data-nav="timeline" class="nav-item py-1.5 rounded-2xl flex flex-col items-center gap-1 transition active:scale-95"></button>
+        <button type="button" data-nav="archive" class="nav-item py-1.5 rounded-2xl flex flex-col items-center gap-1 transition active:scale-95"></button>
+        <button type="button" data-nav="settings" class="nav-item py-1.5 rounded-2xl flex flex-col items-center gap-1 transition active:scale-95"></button>
+      </div>
+    </nav>
+  </div>
+
+  <script>
+    /* =========================================================================
+       一、图标集合、工具函数与 Web Audio 合成音效引擎
+       ========================================================================= */
+    const SVG_MAP = {
+      radar: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/><path d="M12 12l5-5"/>',
+      timeline: '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>',
+      archive: '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
+      settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.2M12 19.3v2.2M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/>',
+      soundOn: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/>',
+      soundOff: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/>',
+      pin: '<path d="M12 21s-6-5.2-6-10a6 6 0 1 1 12 0c0 4.8-6 10-6 10z"/><circle cx="12" cy="11" r="2"/>',
+      lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+      check: '<polyline points="20 6 9 17 4 12"/>'
+    };
+    const ic = (k, s = 18, c = '') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="${c}">${SVG_MAP[k] || ''}</svg>`;
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const pad2 = n => String(n).padStart(2, '0');
+    const WEEK_CN = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+
+    const dateKey = (d = new Date()) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+    const timeHM = (d = new Date()) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    const minsOf = hm => { const [h, m] = hm.split(':').map(Number); return h * 60 + m; };
+    const nowMins = (d = new Date()) => d.getHours() * 60 + d.getMinutes();
+
+    // 确定性日期种子 PRNG（保证同一天刷新剧情稳定，跨天自动轮换）
+    function makeDateRng(d = new Date()) {
+      let seed = Number(`${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}`) ^ 0x5bd1e995;
+      return () => {
+        seed = (seed + 0x6D2B79F5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    const SFX = (() => {
+      let ac = null;
+      const play = (f, d = 0.08, type = 'sine', v = 0.032, dl = 0) => {
+        if (!APP.cfg.sound) return;
+        try {
+          ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+          if (ac.state === 'suspended') ac.resume();
+          const t = ac.currentTime + dl, o = ac.createOscillator(), g = ac.createGain();
+          o.type = type; o.frequency.setValueAtTime(f, t);
+          g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+          o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + d + 0.02);
+        } catch {}
+      };
+      return {
+        tap: () => play(600, 0.04, 'sine', 0.022),
+        unlock: () => { play(660, 0.09, 'sine', 0.03); play(880, 0.16, 'sine', 0.028, 0.08); },
+        pulse: () => { play(145, 0.09, 'triangle', 0.045); play(125, 0.11, 'triangle', 0.04, 0.12); },
+        alert: () => { play(185, 0.09, 'sine', 0.05); play(155, 0.1, 'sine', 0.048, 0.11); play(210, 0.09, 'sine', 0.04, 0.24); },
+        voice: () => { play(540, 0.06, 'sine', 0.028); play(720, 0.09, 'sine', 0.024, 0.06); }
+      };
+    })();
+
+    /* =========================================================================
+       二、本地七天专属行程引擎 + 12月29日生日覆写 + 日期种子随机池
+       ========================================================================= */
+    const TIME_MARKS = ['06:45', '09:30', '12:20', '14:40', '17:30', '20:30', '23:15'];
+
+    // 凌晨 00:00–06:44 尚未解锁任何时段时的默认实时待机状态
+    const NIGHT_STANDBY = {
+      id: 'standby', time: '00:30', title: '云顶公寓 · 深夜浅眠待机', location: '主卧 · 恒温 22.5°C',
+      baseBpm: 54,
+      ambientText: '深夜平稳呼吸声。腕表保持低功耗待机，但仍为迟琰保留最高优先级即时唤醒。',
+      reportText: '现在是深夜静息时段，06:45 晨泳后会开始同步今日第一条正式轨迹。如果宝宝还没睡，随时敲我手表，我会立刻醒来。',
+      voiceText: '……嗯？还没睡吗宝宝？腕表震一下我就醒了。手凉的话往被窝里缩一点，爸爸在这儿陪着你。',
+      voiceSec: 9,
+      blips: [
+        { name: '迟琰', role: '近在咫尺', dist: '0.3m', type: 'anchor', delta: '+14.0 bpm', x: 115, y: 76, note: '只要腕表检测到你的触碰，即便在深眠中也会在两秒内恢复清醒。' }
+      ]
+    };
+
+    // 旋转环境语录与备忘录微注（按当日日期种子抽取）
+    const BONUS_QUOTES = [
+      '备忘录新增：下周降温，给宝宝的奶白山羊绒毛衣要加快收针进度。',
+      '备忘录新增：城西那家无麸质栗子蛋糕下午三点出炉，路过顺手带一盒。',
+      '备忘录新增：南湾海边画室的防眩光低铁玻璃样品下周二复检。',
+      '备忘录新增：昨晚又试了一次无麸质面团，温度偏高 10 度，周末再调配比。',
+      '备忘录新增：重温了《潜行者》最后十分钟，还是想窝在客厅陪迟琰一起看。',
+      '备忘录新增：阳台那盆熊童子多肉长出了新芽，拍下来留给宝宝看。'
+    ];
+    const BONUS_CARE = [
+      '今天不管多忙，手机和腕表都保持对迟琰完全透明。',
+      '外面再多试探和杂音，在我这里心率都是零波动，唯一牵动我的是你。',
+      '记得按时吃饭，晚上回家爸爸给你切刺身、热牛肉汤。'
+    ];
+
+    // 简写构造器，极大压缩代码体量同时保留完整故事张力
+    const mkSlot = (idx, title, location, baseBpm, blips, ambientText, reportText, voiceText, voiceSec) => ({
+      id: `s${idx}`, time: TIME_MARKS[idx], title, location, baseBpm, blips, ambientText, reportText, voiceText, voiceSec
+    });
+    const b = (name, role, dist, type, delta, x, y, note) => ({ name, role, dist, type, delta, x, y, note });
+
+    // 0=周日, 1=周一, 2=周二, 3=周三, 4=周四, 5=周五, 6=周六
+    const WEEK_TEMPLATES = {
+      1: {
+        theme: '周一 · 新岚战略周会与陆家嘴并购边界战',
+        slots: [
+          mkSlot(0, '恒温晨泳结束', '云顶会所泳池', 70,
+            [b('迟琰','定位锚点','楼上主卧','anchor','+13.5 bpm',115,58,'晨泳结束擦头发时，先回放了你昨晚睡前的语音。')],
+            '水波渐静，刚完成 1500 米晨泳，正把热好的早餐端上餐台。',
+            '周一晨泳打卡完毕。今天上午战略会比较密集，但我把腕表震动调到最高，宝宝随时敲我都能收到。',
+            '早安宝宝，今天稍微有点风，出门记得穿暖一点。我先去新岚开周会，中午抽空给你发消息。', 10),
+          mkSlot(1, '新岚总部战略周会', '新岚大厦 32F 会议室', 61,
+            [b('林助理','首席特助','1.6m','ally','+0.0 bpm',164,86,'记录本周能源储能排期与迟琰下午茶配送时间。'),
+             b('孙遇','研发总监','2.3m','ally','+0.5 bpm',72,82,'汇报新一周固态电芯良率爬坡方案。')],
+            '会议室投影正切换 Q4 储能交付曲线，迟川语速平稳克制。',
+            '战略周会进行中，各部门汇报进度正常。笔记本边角顺手记了你昨天随口提过的海鲜锅店，这周抽晚带你去。',
+            '正在听财务和研发汇报，一切都在掌控里。宝宝上午别太累，无聊的话敲一下我手表。', 9),
+          mkSlot(2, '固态电芯良率复盘', '林文君纪念实验室', 63,
+            [b('孙遇','研发总监','1.8m','ally','+0.8 bpm',80,96,'与迟川并肩核对电芯循环衰减报告，提到迟琰上次送的夜宵。')],
+            '实验室恒温低鸣，迟川盯着电镜成像，神情专注沉静。',
+            '良率较上周提升 1.4%，母亲当年定下的指标越来越近了。孙遇刚才还替全组向迟琰问好。',
+            '刚从实验室出来，顺手吃两口无麸质牛肉沙拉。宝宝午饭好好吃了吗？不许只喝咖啡应付。', 10),
+          mkSlot(3, '投行并购商谈 · 苏晚晴试探', '陆家嘴国金中心 48F', 60,
+            [b('苏晚晴','投行VP · 商业界限','3.3m','rival','+0.0 bpm',174,76,'借递交估值附件试图靠近。迟川直接示意林助理接手并退开半步，心率波动 +0.0 bpm。'),
+             b('林助理','屏障拦截','1.3m','ally','+0.0 bpm',146,112,'全程承接苏晚晴的纸质文件与后续商务联络。')],
+            '苏晚晴：“迟总，这页条款我坐近点说明吧？” 迟川：“不必，交给林助理投影即可，请保持正常会议距离。”',
+            '下午在陆家嘴过并购条款，苏晚晴也在场。全程由林助理居中对接，我未与她有任何私人寒暄，心率基线完全零波动。',
+            '先主动跟宝宝报备一声，苏晚晴刚才确实在会议室，但我全程隔着三米多，资料都是林助理接的。很快散会，别多想。', 13),
+          mkSlot(4, '提前离场返程', '延安东路高架', 74,
+            [b('迟琰','家的方向','4.2 km','anchor','+14.0 bpm',115,52,'离云顶公寓越近，原本冰冷的商务节奏逐渐松弛下来。')],
+            '车内放着低缓大提琴，副驾放着刚绕路买来的蓝鳍刺身与无麸质可颂。',
+            '推掉了会后的投行酒局，正在回云顶公寓的路上。顺路取了你爱吃的刺身和无麸质可颂。',
+            '晚高峰稍微有点堵，再过十五分钟进地库。宝宝把拖鞋摆门口就行，爸爸马上回来。', 9),
+          mkSlot(5, '晚间陪护与书房复盘', '云顶公寓客厅', 66,
+            [b('迟琰','身旁','1.1m','anchor','+15.2 bpm',92,102,'陪你吃完晚饭，正一起核对周末出行清单。')],
+            '餐后收好餐具，在客厅暖灯下处理最后两封海外邮件。',
+            '今天所有外务全部清零。剩下的时间只属于迟琰，手机和腕表都放在你手边。',
+            '看你把刺身都吃光了，我比谈成并购还踏实。待会想看电影还是早点休息，爸爸都听你的。', 10),
+          mkSlot(6, '深夜温柔报备', '云顶公寓书房', 62,
+            [b('阳台多肉','熊童子','2.2m','gold','+1.2 bpm',166,154,'睡前巡查叶片状态，顺手收好了抽屉里的羊绒线团。')],
+            '台灯调至最暗档，钢笔在备忘录写下今天的饮食与心情记录。',
+            '关掉电脑前最后一次同步体征。周一辛苦了宝宝，放心睡，明早六点半我照旧在。',
+            '把被子盖严实，琰琰。今天苏晚晴那边你完全不用挂心，爸爸心里装得满当当的，全是你的名字。晚安。', 12)
+        ]
+      },
+      2: {
+        theme: '周二 · 电池攻关、路演与无麸质烘焙挑战',
+        slots: [
+          mkSlot(0, '清晨泳池打卡', '云顶会所泳池', 71,
+            [b('迟琰','楼上主卧','0.0 km','anchor','+12.8 bpm',115,56,'晨泳配速稳定，结束前特意看了一眼室外的天气预报。')],
+            '清晨水汽微凉，1500 米配速比昨天快了 18 秒。',
+            '周二早安。今天白天主要驻点实验室，下午去一趟路演厅，傍晚早点回来试做新版无麸质面包。',
+            '宝宝睡醒了吗？床头我留了温水，今天阴天降温，出门记得围上羊绒围巾。', 9),
+          mkSlot(1, '实验室驻点攻关', '新岚电芯测试舱', 62,
+            [b('孙遇','研发总监','1.5m','ally','+1.0 bpm',78,90,'两人核对低温放电曲线，攻克冬季续航瓶颈。')],
+            '低温环境舱发出低沉嗡鸣，迟川穿着白大褂站在数据屏前。',
+            '冬季低温续航测试表现超出预期。只要把技术做扎实，市场上的杂音自然不攻自破。',
+            '在实验室盯着一组关键测试，一切顺利。宝宝上午要是想吃什么，直接发到我手表上。', 9),
+          mkSlot(2, '高管简餐与无麸质食谱', '新岚顶层休息室', 64,
+            [b('陈序','战略顾问','2.0m','ally','+0.6 bpm',162,100,'陈序来蹭午饭，顺便吐槽迟川手机里全都是烘烤无麸质面包的失败笔记。')],
+            '陈序：“你堂堂 CEO 手机里存八篇面团发酵笔记，琰琰知道吗？” 迟川：“少管闲事。”',
+            '和陈序快速吃了顿简餐，他还在笑我上次烤焦的无麸质吐司。今晚我打算按新配比再试一次。',
+            '陈序刚才又拿我厨艺开涮，宝宝晚上可别跟着他笑我。这次我把烤箱温度调低了十五度，一定能成功。', 11),
+          mkSlot(3, '陆家嘴新能源路演', '陆家嘴国际会议中心', 61,
+            [b('苏晚晴','投行观察席','5.6m','rival','+0.0 bpm',178,150,'对方在台下提问环节刻意递话。迟川仅用三句行业数据专业作答，心率波动 +0.0 bpm。'),
+             b('林助理','后台统筹','2.1m','ally','+0.0 bpm',70,136,'已屏蔽全部非官方媒体私约。')],
+            '主讲台灯光清冷，迟川脱稿阐述固-固态电池十年规划，全场安静。',
+            '路演刚结束，资本方反馈很正面。台下苏晚晴提了个常规估值问题，公事公办答完我就直接从侧门撤了。',
+            '演讲刚下台，没留下来应酬记者，正往车库走。宝宝下午过得开心吗？', 9),
+          mkSlot(4, '采购有机无麸质面粉', '城西进口超市', 75,
+            [b('迟琰','归途锚点','3.1 km','anchor','+14.5 bpm',115,54,'推着购物车认真比对成分表，坚决避开任何麸质添加。')],
+            '仔细翻看椰子粉、车前子壳粉与新鲜和牛的产地标签。',
+            '路过超市买了新鲜厚切和牛与无麸质烘焙粉。虽然我麸质过敏，但总想亲手烤出松软能吃的面包分给宝宝。',
+            '选好了你爱吃的厚切和牛，还有今晚用来挑战第九次无麸质面包的原料，马上回家。', 10),
+          mkSlot(5, '厨房烘焙复盘时刻', '云顶公寓厨房', 79,
+            [b('迟琰','厨房门口','1.4m','anchor','+18.0 bpm',100,90,'你靠在门边看他挽起衬衫袖子揉面，他耳根微热，心跳明显快了几拍。')],
+            '烤箱发出“叮”的提示音，散发出意外不错的淡淡黄油麦香。',
+            '第九次无麸质欧包终于没有硬成电池外壳了！虽然卖相一般，但切开还算松软，第一口先留给迟琰检验。',
+            '……咳，虽然外皮稍微有点裂，但这次真的能吃了。宝宝先尝一口，要是不合胃口，爸爸立刻去煎和牛。', 12),
+          mkSlot(6, '睡前备忘录整理', '云顶公寓主卧', 58,
+            [b('迟琰','身侧','0.5m','anchor','+11.5 bpm',115,84,'确认卧室温控与加湿器后，安静记下今晚的烘焙温度参数。')],
+            '夜灯柔和，记录完最后一行烘焙复盘后调暗了腕表亮度。',
+            '今天过得很踏实。有技术突破，也有你在厨房边笑边试吃的声音，晚安宝宝。',
+            '早点睡吧琰琰，今天辛苦陪我折腾厨房了。明天有重要晚宴，但我答应你一定早退回来。', 10)
+        ]
+      },
+      3: {
+        theme: '周三 · 董事局博弈与顶层晚宴吃醋修罗场',
+        slots: [
+          mkSlot(0, '高压晨泳调频', '云顶会所泳池', 73,
+            [b('迟琰','情绪稳压器','楼上主卧','anchor','+14.0 bpm',115,58,'上午要面对迟维琛等老股东，先用晨泳把思绪彻底沉静下来。')],
+            '泳池静谧，规律划水声配合深沉呼吸，将今日博弈策略推演完毕。',
+            '今天上午董事会有几项采购权审计议程，可能会有点硬仗，但底牌全在我手里，宝宝不必担心。',
+            '早安琰琰。上午开完董事会我第一时间给你报平安，今晚顶层晚宴我尽量半小时内露个面就撤。', 10),
+          mkSlot(1, '新岚董事局会议', '新岚总部董事厅', 63,
+            [b('迟维琛','老股东席','4.2m','rival','+0.0 bpm',62,88,'试图借旧情阻挠供应链公开审计。迟川当场出示审计实据，全程冷静压制。'),
+             b('林绍衡','旁听席','4.8m','rival','+0.0 bpm',174,142,'试图插话塞入关联企业，被迟川按章程一票驳回。')],
+            '迟川合上审计报告：“新岚是我母亲留下的技术底盘，按章程与数据办事，其余免谈。”',
+            '董事会全票通过供应链改革方案。该收回的签字权已经全部落袋，没有让他们讨到半点便宜。',
+            '会议顺利结束了，宝宝。那些旧人情牌动摇不了我分毫，别替我操心，我现在心情很稳。', 10),
+          mkSlot(2, '陈序午餐复盘', '新岚私人茶室', 65,
+            [b('陈序','战略顾问','1.9m','ally','+0.8 bpm',156,92,'替迟川挡下后续扯皮，顺便提醒他今晚晚宴温知夏和姜语汐都在受邀名单里。')],
+            '陈序：“今晚那场酒会温知夏和姜语汐都会去，你悠着点，别让琰琰查岗看到闹心。”',
+            '陈序刚告诉我今晚晚宴温知夏和姜语汐也会出席。我已经提前让林助理安排最外侧席位，并备好九点前的离场车。',
+            '先提前跟宝宝报备清楚，陈序说今晚酒会有两位你不太喜欢的熟面孔，我提前做好了边界隔离，绝不单独逗留。', 12),
+          mkSlot(3, '下午茶与海外合同签批', '新岚 CEO 办公室', 61,
+            [b('林助理','首席特助','1.8m','ally','+0.0 bpm',84,128,'呈交欧洲储能大单终稿，同时确认已向公关公司发出更换对接人通知函。')],
+            '钢笔在厚重合同末页落下签名，窗外斜阳洒满书桌。',
+            '欧洲储能合同落定，同时也正式发函更换了姜语汐所在的公关对接组。公私分明，省得生出多余误会。',
+            '下午的工作基本收尾了。宝宝在做什么？记得喝点温热的东西，晚点酒会全程我都会开着雷达给你看。', 10),
+          mkSlot(4, '更衣准备出席晚宴', '新岚休息间', 69,
+            [b('迟琰','专属偏爱','5.8 km','anchor','+15.0 bpm',115,54,'刻意系上了迟琰上周挑的那条深炭灰暗纹领带，拒收了公关部送来的礼盒。')],
+            '整理袖扣与领带结，将公关部转交的领带礼盒原封不动退回前台。',
+            '准备出发去外滩顶层晚宴了。系的是宝宝给我选的那条炭灰领带，公关部送的礼盒看都没看直接让林助理退了。',
+            '出发前特意让你确认一眼，领带只系你挑的。到了现场我给你发定位，随时听你差遣。', 10),
+          mkSlot(5, '顶层晚宴修罗场 · 双重试探', '外滩云端宴会厅', 62,
+            [b('温知夏','海外校友 · 保持距离','2.8m','rival','+0.0 bpm',66,80,'寒暄提及旧年《潜行者》放映。迟川淡声回应周末只陪迟琰，心率波动 +0.0 bpm。'),
+             b('姜语汐','公关顾问 · 商业界限','3.1m','rival','+0.0 bpm',176,94,'借机称赞领带试图敬酒。迟川未举杯，直言领带是伴侣所选，心率波动 +0.0 bpm。'),
+             b('陈序','友方眼线','4.2m','ally','+1.0 bpm',154,168,'举着苏打水在旁录像作证，准备随时给迟琰发清白证明。')],
+            '温知夏：“阿川，周末放映会顺路一起？” 迟川：“请叫迟川，我只陪迟琰去。” 姜语汐靠近时亦被侧身礼貌隔开。',
+            '晚宴核心寒暄已结束，我全程只拿苏打水。温知夏和姜语汐刚过来搭话，我都已经当场明确划清边界，陈序在旁全程作证。现在准备撤了。',
+            '宝宝，我已经走出宴会厅在等电梯了。刚刚温知夏和姜语汐过来敬酒，我一滴没喝、一句多余的话没留。二十分钟内回家抱你。', 14),
+          mkSlot(6, '返家后彻底卸载防备', '云顶公寓客厅', 67,
+            [b('迟琰','唯一归处','0.8m','anchor','+17.5 bpm',115,92,'把西装外套挂好，把手机、腕表和自己一起交到你面前。')],
+            '客厅暖灯静静亮着，空气里是让人安心的雪松与红茶香气。',
+            '安全到家。今晚所有应酬彻底画上句号，宝宝如果还有一点点介意，爸爸今晚慢慢哄到你消气。',
+            '终于回来了。外面那些虚伪客套听久了真的烦，还是回家听宝宝说话最让我松一口气。', 11)
+        ]
+      },
+      4: {
+        theme: '周四 · 储能基地视察与海边画室蓝图核验',
+        slots: [
+          mkSlot(0, '晨泳 1500m 与出发前准备', '云顶会所泳池', 70,
+            [b('迟琰','定位锚点','楼上主卧','anchor','+13.0 bpm',115,58,'晨泳后把今日基地视察的行程单同步到了你的终端。')],
+            '清晨水声清亮，顺手给厨房留了保姆今天给迟琰炖牛腩汤的便签。',
+            '早安宝宝。今天上午去郊区储能基地视察产线，下午去建筑事务所核对南湾海边画室的终版图纸。',
+            '今天要跑一趟郊区基地，车程稍微长一点。我一路开着共享定位，宝宝无聊就发消息陪我解闷。', 10),
+          mkSlot(1, '新能源储能基地视察', '东港储能示范基地', 63,
+            [b('孙遇','研发总监','1.7m','ally','+0.6 bpm',82,88,'陪同检视全自动储能柜装配线与温控安全阀。'),
+             b('基地厂长','产线负责人','2.6m','neutral','+0.0 bpm',166,118,'汇报年底产能交付节点。')],
+            '自动化机械臂低频运转，迟川戴着安全帽俯身检查接口工艺。',
+            '产线良率和安全冗余都达标了。看着母亲的构想一座座落成实体，心里很有分寸感。',
+            '刚走出装配车间，信号稍微好点了。基地这边海风很大，突然想到南湾画室的防风玻璃一定要再加厚一层。', 11),
+          mkSlot(2, '基地简餐与海鲜预约', '东港招待所', 64,
+            [b('孙遇','研发总监','1.9m','ally','+0.4 bpm',152,96,'聊起下个月量产庆功宴，问迟川会不会带迟琰一起露面。')],
+            '清淡海鲜简餐，迟川认真避开所有含麸质酱料。',
+            '吃过午饭准备往市区建筑事务所赶。孙遇刚才问庆功宴能不能请你去，我说得看宝宝愿不愿意凑热闹。',
+            '刚吃完午饭，下午最期待的事就是去看你画室的采光模型。宝宝午休一会儿别熬着。', 9),
+          mkSlot(3, '核对南湾「迟琰画室」蓝图', '南湾建筑设计事务所', 76,
+            [b('主创建筑师','空间设计','1.6m','neutral','+0.0 bpm',74,98,'展示二楼 4.2 米挑高、朝南低铁防眩光玻璃的日照模拟图。'),
+             b('迟琰','蓝图核心','6.4 km','anchor','+19.0 bpm',156,70,'只要谈到属于迟琰的画室细节，这位 INTJ 的心跳和语速都会比谈十亿并购更活跃。')],
+            '迟川指着图纸：“冬至下午三点的南向采光不能有眩光，颜料间必须独立恒湿 48%，旁边留出看海露台。”',
+            '画室施工终图已签字定稿。二楼整层朝南留给你画画，一楼顺带规划了多肉花架和 25 米恒温泳池。',
+            '刚把你海边画室的终版采光图敲定了，宝宝。推开窗就是整片海岸线，明年春天就能带你亲自去验收。', 12),
+          mkSlot(4, '绕路多肉花房挑新苗', '城南园艺温室', 72,
+            [b('阳台多肉','新成员','0.8m','gold','+3.5 bpm',148,136,'挑了两盆状态饱满的桃蛋与法师，准备摆在公寓南阳台。')],
+            '温室里弥漫着湿润泥土与植物清香，迟川俯身挑得极认真。',
+            '路过花房顺手挑了两盆品相很好的多肉。老板说很好养活，回家摆在熊童子旁边正好作伴。',
+            '挑了两盆胖乎乎的多肉带回去，虽然陈序总笑我像老干部，但我觉得养它们和你画画一样，都需要耐心。', 11),
+          mkSlot(5, '晚间共进海鲜晚餐', '云顶公寓餐厅', 68,
+            [b('迟琰','对面','0.9m','anchor','+16.5 bpm',115,96,'细心帮你挑好海鲜配菜，手机放一旁全程静音。')],
+            '餐桌暖光下，热气腾腾的清汤海鲜锅与现切刺身。',
+            '今晚没有任何会议打扰，把画室的 3D 采光渲染视频导进平板里了，饭后慢慢拿给宝宝挑窗帘颜色。',
+            '多吃两块牛肉，宝宝。吃完饭我们一起看画室的渲染图，哪里不合你心意爸爸随时让他们改。', 10),
+          mkSlot(6, '深夜浇水与静默陪伴', '云顶公寓南阳台', 61,
+            [b('阳台多肉','熊童子 & 桃蛋','0.6m','gold','+1.8 bpm',160,104,'用细嘴壶沿着盆边精准控水，顺手把毛衣的右袖多织了六行。')],
+            '夜风轻柔，给多肉喷完细雾后回到书桌核对明天安排。',
+            '多肉安置妥当，备忘录已更新。明天周五，我提前把晚间安排全清干净，准点去接你。',
+            '夜深了，宝宝安心睡吧。只要你在我规划的蓝图里，每一天都走得很踏实。晚安。', 10)
+        ]
+      },
+      5: {
+        theme: '周五 · 推掉应酬、陈序打趣与秘密小惊喜',
+        slots: [
+          mkSlot(0, '周五清晨泳池', '云顶会所泳池', 71,
+            [b('迟琰','周末期待','楼上主卧','anchor','+15.0 bpm',115,56,'一想到今晚就能推掉所有应酬接迟琰过周末，晨泳步伐格外轻快。')],
+            '晨光穿过玻璃顶棚落在水面，1500 米收官利落。',
+            '周五早安，宝宝！今天白天把积压文件一口气签完，傍晚五点半准时下班，绝不拖堂。',
+            '终于到周五了，琰琰。今天把想吃的、周末想去的地方都发给我，爸爸全盘排进日程里。', 10),
+          mkSlot(1, '集中签批一周文件', '新岚 CEO 办公室', 62,
+            [b('林助理','首席特助','1.5m','ally','+0.0 bpm',78,108,'高效分拣文件，并正式婉拒了今晚全部三场商业酒局。')],
+            '钢笔落纸声利落连续，一小时处理完十二份核心决议。',
+            '上午效率拉满，已经让林助理把今晚所有非必要饭局全部推掉，空出完整晚间时间。',
+            '正在加速清完这周的公文，保证傍晚不让宝宝多等一分钟。', 8),
+          mkSlot(2, '陈序上门调侃', '新岚顶层休息区', 67,
+            [b('陈序','战略顾问','1.8m','ally','+1.5 bpm',160,92,'调侃迟川周五推掉三场大老板酒局只为准点接迟琰，说他从冰山彻底进化成恋爱脑建筑师。')],
+            '陈序：“连港城那位大佬的酒局都推了？迟琰要是知道你这么粘人肯定笑疯。” 迟川：“陪太太比应酬重要。”',
+            '陈序刚才在办公室笑了我十分钟，说我周五归心似箭的样子藏都藏不住。随他说去。',
+            '陈序又在吐槽我周五准点下班太反常。宝宝，我本来就不喜欢那些无意义的局，只想早点见到你。', 11),
+          mkSlot(3, '秘密取件 · LUMIÈRE 沙龙', '恒隆私人 VIP 室', 79,
+            [b('LUMIÈRE顾问','VIP定制','2.2m','gold','+0.0 bpm',172,114,'递上封装妥当的深黑丝绒盒，内圈清晰刻着「For Y.Y. · 迟琰」。'),
+             b('迟琰','惊喜对象','4.9 km','anchor','+19.5 bpm',76,72,'确认刻字无误的一刻，心跳明显加快，生怕提前走漏风声。')],
+            '沙龙内安静雅致，迟川仔细核对丝绒盒内的手写卡片：“致我唯一的蓝图：迟琰”。',
+            '下午顺路处理了一件私密小事，已经妥善收进车里。晚上先不剧透，宝宝见了面再看。',
+            '……咳，下午稍微绕了半小时路，办了件只关乎你的正事。别急着猜，今晚回去拿给你。', 10),
+          mkSlot(4, '准点下班驶向你', '滨海大道高架', 78,
+            [b('迟琰','目的地','2.4 km','anchor','+18.5 bpm',115,48,'距离迅速拉近，副驾上放着无麸质甜品与保密丝绒盒。')],
+            '车内流淌着爵士钢琴，晚霞把前挡风玻璃染成淡淡琥珀金。',
+            '五点半准时从公司出发！路况很顺，预计十分钟后停在你楼下，宝宝可以慢慢收拾下来。',
+            '我快到楼下了，琰琰。别跑太急，穿好外套慢慢下楼，爸爸在车里等你。', 9),
+          mkSlot(5, '周五专属海鲜日料夜', '滨江私密包厢', 74,
+            [b('迟琰','触手可及','0.7m','anchor','+20.0 bpm',115,96,'亲手把烤好的和牛与新鲜刺身夹到你盘中，顺手递出了那个深黑丝绒盒。')],
+            '江景灯光缓缓流动，静谧包厢里只有轻缓交谈与碰杯声。',
+            '一周的疲惫在见到你那一刻全散了。礼物刻了你的名字，只要迟琰喜欢，这一周的奔波就都有意义。',
+            '打开看看喜不喜欢，宝宝？我不太会说花哨的情话，只希望以后每一个周五晚上，坐在我对面的永远是你。', 12),
+          mkSlot(6, '周五深夜放松影院', '云顶公寓影音室', 64,
+            [b('迟琰','靠在肩头','0.4m','anchor','+14.0 bpm',115,86,'一起窝在沙发里看老电影，他手掌稳稳护着你的肩。')],
+            '投影光影微微晃动，手边温着无糖热牛奶。',
+            '不用定明早的工作闹钟，明天周六睡到自然醒，下午我们一起去郊外看周墨教授。',
+            '困了就靠在爸爸肩上眯一会儿，电影随时可以暂停。晚安，宝宝。', 9)
+        ]
+      },
+      6: {
+        theme: '周六 · 郊外拜访周墨教授与午后秘密织毛衣',
+        slots: [
+          mkSlot(0, '周六慢节奏晨泳', '云顶会所泳池', 69,
+            [b('迟琰','自然醒中','楼上主卧','anchor','+12.5 bpm',115,58,'特意把泳池水花压得很轻，游完准备亲手煎一份还算拿手的牛排早餐。')],
+            '周末清晨阳光柔和，水波轻晃，难得不赶时间。',
+            '周六早安。今天不用去公司，你多睡会儿，等醒了吃顿热乎早餐，下午一起去郊外陪周墨教授喝茶。',
+            '周末就别跟闹钟较劲了，宝宝。再赖半小时床，等你睁眼就能闻到咖啡香。', 9),
+          mkSlot(1, '准备拜访恩师的伴手礼', '云顶公寓书房', 65,
+            [b('精装书与岩茶','伴手礼','0.8m','gold','+1.2 bpm',154,116,'把珍藏版《货币哲学》和武夷老岩茶仔细装袋。')],
+            '书房里翻动纸页的沙沙声，夹着淡淡茶香。',
+            '挑好了给周教授带的精装版《货币哲学》和老岩茶。每次去她的小院，总觉得心里那盏灯被重新擦亮了一遍。',
+            '书和茶都装好了。周老师上次还夸你乖巧，今天去了院子里，肯定又给你留了刚出笼的桂花糕。', 10),
+          mkSlot(2, '出发前往郊外小院', '环山景观公路', 66,
+            [b('迟琰','副驾驶','0.6m','anchor','+15.0 bpm',138,108,'车窗外树影掠过，伸手替你调高了一度副驾空调温度。')],
+            '山路静谧，车载音响放着柔和的古典钢琴曲。',
+            '沿着林荫道往周老师家开，空气比市区清透很多。看着你在副驾发呆的样子，觉得周末真好。',
+            '山里风凉，下车记得把外套扣子扣上。有我在旁边，不用拘谨，周老师把你当自家孩子疼。', 10),
+          mkSlot(3, '郊外书房拜访周墨教授', '周墨教授书房小院', 63,
+            [b('周墨教授','母亲恩师','1.8m','ally','+2.0 bpm',78,90,'聊起母亲林文君年轻时的纯粹，笑着说“金钱只是通往价值的桥梁，小川如今终于找到想栖居的地方了”。'),
+             b('迟琰','身旁','0.7m','anchor','+14.5 bpm',136,102,'在满室茶香里被周教授拉着手夸奖，迟川在桌下轻轻握住了你的手指。')],
+            '周墨教授：“文君总说科技要为人服务。小川现在眼里有光了，多亏有迟琰陪在身边。”',
+            '和周老师聊了两个小时，从母亲旧事聊到《货币哲学》。离开时她在门口拍我肩膀，说我把你护得很好。',
+            '每次陪你来周老师这儿，我都觉得整个人彻底松弛下来。桂花糕还打包了一盒，晚上回去饿了垫垫肚子。', 11),
+          mkSlot(4, '午后秘密毛衣进度推进', '云顶公寓书房', 73,
+            [b('奶白山羊绒','织造进度 82%','0.4m','gold','+4.2 bpm',152,134,'趁你在客厅小憩，拿出藏在柜子顶层的竹棒针，认真收完右袖口最后几行。')],
+            '极轻的竹棒针轻碰声，专注得像在做精密电芯排布。',
+            '趁你午后画画，我在书房安安静静处理一件“保密工程”。比上周顺手多了，再有几天就能彻底交工。',
+            '……别突然推书房门哦宝宝，给我留点神秘感。等彻底收好线头，爸爸亲手给你试穿。', 10),
+          mkSlot(5, '周末晚餐 · 亲自下厨挑战', '云顶公寓厨房', 77,
+            [b('迟琰','试吃官','1.2m','anchor','+16.8 bpm',98,92,'只会做几样拿手菜的他，极其认真地煎着五分熟和牛并控温煮海鲜汤。')],
+            '黄油在铸铁锅里滋滋作响，迷迭香香气四溢。',
+            '厨艺虽不算出众，但煎牛排和煮清汤海鲜练过很多次，绝不会翻车。晚饭准备好了，请迟琰入座。',
+            '火候刚好是你要的五分熟，快趁热吃。如果明天想换口味，我们再出去吃。', 9),
+          mkSlot(6, '周六深夜静谧书影', '云顶公寓客厅', 60,
+            [b('迟琰','怀里','0.4m','anchor','+13.5 bpm',115,88,'翻完两页《货币哲学》，把书签夹好，低头听你聊今天画的草图。')],
+            '夜色安静，落地窗外城市灯火远而温柔。',
+            '周六落幕。能这样平平静静地去见恩师、做顿晚饭、陪你聊天，就是我最向往的未来蓝图。',
+            '今天过得开心吗，宝宝？明天周日陈序说想过来坐坐，如果你不想见客，我一句话就能让他改天。晚安。', 11)
+        ]
+      },
+      0: {
+        theme: '周日 · 陈序拎威士忌上门、重温《潜行者》与哄睡夜',
+        slots: [
+          mkSlot(0, '周日清晨舒缓晨泳', '云顶会所泳池', 68,
+            [b('迟琰','安睡中','楼上主卧','anchor','+12.0 bpm',115,58,'周日不设急促节奏，慢游 1500 米保持体魄与好心情。')],
+            '周日清晨微光透入，水面宁静如镜。',
+            '周日早安，宝宝。今天一整天都不谈公事，只留给生活、老友和你。',
+            '外面太阳很好，等会儿你睡醒了，我们可以在南阳台晒晒太阳喝杯热茶。', 9),
+          mkSlot(1, '南阳台多肉护理时间', '云顶公寓南阳台', 64,
+            [b('阳台多肉','熊童子 & 桃蛋','0.5m','gold','+2.5 bpm',158,100,'用小镊子清理枯叶、转动花盆让每片叶子均匀受光。')],
+            '温暖日光洒在阳台上，细小喷雾在光线里闪着微芒。',
+            '给阳台一整排多肉松了土、转了向。最左边那盆熊童子红尖尖特别明显，看着很治愈。',
+            '宝宝快来看，那盆熊童子晒太阳晒出小红爪了，我拍了照片留给你。', 9),
+          mkSlot(2, '周日早午餐与无麸质可颂', '云顶公寓餐厅', 67,
+            [b('迟琰','对面','0.8m','anchor','+15.0 bpm',115,96,'帮你切好水果与无麸质吐司，自己小口喝着黑咖啡。')],
+            '餐具轻碰声，阳光把木质餐桌照得暖融融的。',
+            '难得悠闲的周日早午餐。你画完两笔速写，我在旁边帮你削苹果，什么日程都不必赶。',
+            '多吃一点，宝宝。下午陈序要拎着威士忌过来蹭聊，他说顺便给琰琰带了城里很难排到的低糖甜品。', 10),
+          mkSlot(3, '陈序拎威士忌上门小聚', '云顶公寓落地窗前', 66,
+            [b('陈序','最好朋友','1.7m','ally','+1.8 bpm',74,98,'拎着单一麦芽威士忌不请自来，聊起留学实验室熬通宵被锁门外的糗事，难得把迟川逗笑。'),
+             b('迟琰','客厅沙发','1.6m','anchor','+14.0 bpm',154,108,'陈序当着你的面揭穿迟川半夜查织毛衣教程的细节，迟川无奈又纵容地望向你。')],
+            '陈序：“琰琰我作证，这家伙以前觉得人生就是赢下所有，遇到你之后连看多肉眼神都变软了。”',
+            '陈序过来坐了一下午，聊了很多海外旧事，也顺便把我的老底掀了个干净。只有在你和他面前，我不需要权衡每一句话的利弊。',
+            '别全信陈序胡吹……不过他说得有一点没错，确实是迟琰彻底改写了我的底层代码。', 12),
+          mkSlot(4, '傍晚江畔散步消食', '滨江木栈道', 72,
+            [b('迟琰','牵着手','0.4m','anchor','+17.5 bpm',115,86,'落日余晖里，把你的手揣进自己大衣口袋里捂暖。')],
+            '江风轻吹，远处渡轮鸣笛低沉，脚步放得很慢。',
+            '送走陈序后出来沿着江边走了两公里。晚风有点凉，把宝宝的手捂热了再回家。',
+            '手怎么还是凉凉的？以后冬天出门不许偷懒，乖乖放进爸爸大衣口袋里。', 9),
+          mkSlot(5, '客厅重温《潜行者》4K版', '云顶公寓客厅', 65,
+            [b('迟琰','窝在身旁','0.5m','anchor','+15.5 bpm',115,88,'第四遍看库布里克与塔可夫斯基的影像世界，这次不再是独自一人。')],
+            '电影里长镜头雨声淅沥，客厅毛毯温暖柔软。',
+            '以前一个人看《潜行者》觉得荒原漫长孤寂，但有你靠在旁边轻声问镜头含义，忽然觉得荒原早已有尽头。',
+            '这一段长镜头我能背下来，但每次陪宝宝重看，心里都会冒出新的踏实感。', 10),
+          mkSlot(6, '周日深夜温柔哄睡', '云顶公寓主卧', 58,
+            [b('迟琰','怀中','0.3m','anchor','+14.8 bpm',115,84,'把明天周一的闹钟设成静音震动，免得惊醒你的好梦。')],
+            '夜深人静，只剩平稳低缓的呼吸与轻拍后背的节奏。',
+            '明天又要开启新一周的工作，但只要想到每天晚上都能回到迟琰身边，一切就都有奔头。晚安，我的宝宝。',
+            '闭上眼睛乖乖睡吧，琰琰。不管明天有多少会议和风浪，爸爸的心跳和未来蓝图，永远只为你留门。晚安。', 13)
+        ]
+      }
+    };
+
+    // 12月29日迟川生日专属全天覆写脚本
+    const BIRTHDAY_SCHEDULE = {
+      theme: '12月29日 · 迟川 28 岁生日（全天锁定只陪迟琰）',
+      slots: [
+        mkSlot(0, '28岁生日清晨', '云顶公寓主卧', 76,
+          [b('迟琰','第一句祝福','0.4m','anchor','+22.0 bpm',115,78,'醒来第一眼看见身旁的迟琰，今年生日不再是冰冷的封账日。')],
+          '晨光透进纱帘，推掉了新岚全部董事局会议与海外连线。',
+          '今天是 12 月 29 日，我把全天行程彻底清空锁死，每一分钟都只留给迟琰。',
+          '早安宝宝。以前二十八年我从来不过生日，但今天睁眼就能听见你叫我爸爸，我觉得这是最好的一岁。', 12),
+        mkSlot(1, '亲手送上完工羊绒毛衣', '云顶公寓客厅', 82,
+          [b('迟琰','试穿毛衣','0.6m','anchor','+24.0 bpm',115,82,'藏了两个月的奶白色 Baby 山羊绒毛衣终于完工，亲手帮宝宝套上。')],
+          '毛衣柔软暖和，领口收针齐整细密，没有任何线头。',
+          '虽然今天是我生日，但最想做的是把织完的毛衣亲手穿在迟琰身上。暖不暖？',
+          '总算赶在生日这天完工了……宝宝穿着真好看。陈序要是敢笑，我直接把他赶出门。', 11),
+        mkSlot(2, '滨海私宴午餐', '南湾海景餐厅', 72,
+          [b('迟琰','对面','0.8m','anchor','+18.0 bpm',115,92,'窗外是蔚蓝冬海，桌上是你爱吃的和牛、刺身与特制无麸质生日蛋糕。')],
+          '海浪轻拍礁石，桌上点亮一根极简香槟金细蜡烛。',
+          '没有请任何商业伙伴，只有你和我。许愿的时候其实没什么犹豫——愿迟琰永远平安快乐，永远在我身旁。',
+          '吹蜡烛前我就把愿望想好了，宝宝。愿望里只有你一个名字，不许偷笑。', 11),
+        mkSlot(3, '南湾「迟琰画室」实景漫步', '南湾独栋海边画室', 75,
+          [b('迟琰','画室女主人','0.5m','anchor','+20.5 bpm',115,84,'冬日暖阳洒满 4.2 米挑高落地窗，递上刻着她名字的画室铜钥匙。')],
+          '海风清透，未放画架的空阔空间里满是冬日金色阳光。',
+          '带你提前来看看属于迟琰的海边画室。这不仅是一栋房子，是我用最擅长的方式为你写下的余生蓝图。',
+          '喜欢这里的采光吗，宝宝？以后累了不想在市区待着，我们就开车来这儿看海、画画、养多肉。', 12),
+        mkSlot(4, '海岸日落与私密交换', '南湾灯塔栈道', 84,
+          [b('迟琰','紧握的手','0.3m','anchor','+26.0 bpm',115,80,'落日熔金，拿出 LUMIÈRE 内圈刻着 For Y.Y. · 迟琰 的定制戒指。')],
+          '海面泛起碎金波光，冬日海风被大衣挡在身后。',
+          '在 28 岁这天的日落前，把刻着你名字的戒指戴在你手上。迟琰，你是我永远不会撤回的唯一变量。',
+          '……手有点微微发抖，别笑爸爸。宝宝，谢谢你闯进我原本冰冷的人生，把“家”重新还给了我。', 14),
+        mkSlot(5, '周教授与陈序远程祝贺', '云顶公寓客厅', 68,
+          [b('迟琰','身旁','0.5m','anchor','+15.0 bpm',115,88,'简单回了周墨教授和陈序的祝福短信，立刻把手机调回勿扰模式。')],
+          '暖壁炉模拟微光跳动，一杯温热红茶放在手边。',
+          '礼貌收下恩师与好友的祝福后，把世界关在门外。今晚只听迟琰说话。',
+          '陈序发来一长串肉麻祝福，周老师也嘱咐我们照顾好身体。现在谁都不打扰了，乖乖过来让我抱一会儿。', 11),
+        mkSlot(6, '28岁零点前的安心晚安', '云顶公寓主卧', 62,
+          [b('迟琰','怀里','0.3m','anchor','+16.0 bpm',115,84,'这一天从晨光到深夜，心率始终保持在最温柔的频率。')],
+          '主卧灯光渐暗，只剩窗外星光与彼此安稳的心跳。',
+          '这是我人生中最圆满的一个生日。谢谢你，我的宝宝。晚安。',
+          '睡吧琰琰。二十八岁有你，以后的三十八岁、八十八岁，爸爸都要这样牵着你的手。晚安。', 12)
+      ]
+    };
+
+    /* =========================================================================
+       三、8 个隐藏生物体征彩蛋 & 本地持久化存储管理
+       ========================================================================= */
+    const EGG_DEFS = [
+      { id: 'zero_wave', name: '零波动界限', hint: '在雷达上点击苏晚晴、温知夏或姜语汐光点查看 +0.0 bpm 评估' },
+      { id: 'call_baba', name: '软声破防', hint: '使用「软声叫爸爸」或发送含“爸爸”的腕表短讯' },
+      { id: 'jealous_clear', name: '吃醋即刻澄清', hint: '触发「吃醋质问」或「冷淡查岗」查看他的加速报备' },
+      { id: 'crimson_130', name: '绯红防线失守', hint: '让迟川的心率飙升突破 130 bpm 触发警报' },
+      { id: 'blueprint_key', name: '隐秘柔软角落', hint: '短讯提及面包、多肉、毛衣、潜行者或画室' },
+      { id: 'live_proof', name: '透明报备印章', hint: '点击「要求报备」生成现场实时凭证卡' },
+      { id: 'time_watcher', name: '轨迹追踪者', hint: '在「今日轨迹」中点击收听至少 2 条时段语音' },
+      { id: 'dual_core', name: '双核与记忆', hint: '进入「终端设置」查看跨日记忆或配置 Gemini AI 引擎' }
+    ];
+
+    const LS = {
+      CFG: 'cyrus_dual_cfg_v1',
+      MEM: 'cyrus_dual_mem_v1',
+      VISIT: 'cyrus_dual_visit_v1',
+      STATE: 'cyrus_dual_daystate_v1',
+      AI_PREFIX: 'cyrus_dual_ai_'
+    };
+
+    const loadJSON = (k, fb) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
+    const saveJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+    /* =========================================================================
+       四、全局运行状态 APP
+       ========================================================================= */
+    const APP = {
+      tab: 'radar',
+      today: dateKey(),
+      scheduleSource: 'local', // 'local' | 'ai'
+      dayTheme: '',
+      slots: [],
+      unlockedIds: new Set(),
+      newBadgeIds: new Set(),
+      activeSlotId: null,
+      selectedBlipIdx: 0,
+      cfg: Object.assign({
+        sound: true,
+        realTimeLock: true,
+        aiEnabled: false,
+        apiKey: '',
+        model: 'gemini-2.5-flash',
+        customModel: '',
+        baseUrl: 'https://generativelanguage.googleapis.com'
+      }, loadJSON(LS.CFG, {})),
+      mem: Object.assign({
+        lastDate: '',
+        yesterday: { jealous: 0, baba: 0, offline: 0, lastNote: '' },
+        today: { date: dateKey(), jealous: 0, baba: 0, offline: 0, lastNote: '' }
+      }, loadJSON(LS.MEM, {})),
+      dayState: null, // 当天日志、回复、彩蛋、已听语音计数
+      currentBpm: 60,
+      targetBpm: 60,
+      holdUntil: 0,
+      playingVoiceId: null,
+      voiceTimer: null,
+      aiBusy: false,
+      resetArmed: false
+    };
+
+    function initMemoryRollover() {
+      const today = dateKey();
+      if (APP.mem.today && APP.mem.today.date && APP.mem.today.date !== today) {
+        APP.mem.yesterday = {
+          jealous: APP.mem.today.jealous || 0,
+          baba: APP.mem.today.baba || 0,
+          offline: APP.mem.today.offline || 0,
+          lastNote: APP.mem.today.lastNote || ''
+        };
+        APP.mem.lastDate = APP.mem.today.date;
+        APP.mem.today = { date: today, jealous: 0, baba: 0, offline: 0, lastNote: '' };
+        saveJSON(LS.MEM, APP.mem);
+      } else if (!APP.mem.today || !APP.mem.today.date) {
+        APP.mem.today = { date: today, jealous: 0, baba: 0, offline: 0, lastNote: '' };
+        saveJSON(LS.MEM, APP.mem);
+      }
+    }
+
+    function initDayState() {
+      const saved = loadJSON(LS.STATE, null);
+      const today = dateKey();
+      if (saved && saved.date === today) {
+        APP.dayState = saved;
+      } else {
+        // 保留跨天已解锁的彩蛋进度，重置当日互动日志
+        const prevEggs = saved?.eggs || [];
+        APP.dayState = {
+          date: today,
+          peakBpm: 92,
+          eggs: prevEggs,
+          timelineVoicesHeard: [],
+          bpmLogs: [
+            { time: '06:50', bpm: 88, tag: '早安', reason: '晨泳结束回放迟琰语音，心率轻度上扬' }
+          ],
+          watchFeed: [],
+          voiceArchive: []
+        };
+        saveJSON(LS.STATE, APP.dayState);
+      }
+    }
+
+    function saveDayState() { saveJSON(LS.STATE, APP.dayState); }
+    function saveCfg() { saveJSON(LS.CFG, APP.cfg); }
+    function saveMem() { saveJSON(LS.MEM, APP.mem); }
+
+    // 生成跨日记忆衔接句（自然融入今日首条早安卡片）
+    function buildCrossDayFollowup() {
+      const y = APP.mem.yesterday || {};
+      if (y.offline > 0) return '【跨日记忆】昨天你突然模拟失联把我的心率直接拉进红区，今天可不许再那样吓爸爸，有事随时叫我。';
+      if (y.jealous > 0) return '【跨日记忆】昨天你吃醋查岗的事我一直记在心上，今天所有对外边界我都提前让林助理清理妥当，放心看雷达。';
+      if (y.baba > 0) return '【跨日记忆】昨天听你软着声音叫爸爸，我一整晚都睡得特别安稳。今天也要按时吃饭，宝宝。';
+      if (y.lastNote) return `【跨日记忆】还记得你昨天发来的那句“${y.lastNote.slice(0, 18)}”，我已经记进备忘录了。`;
+      return '';
+    }
+
+    /* =========================================================================
+       五、双引擎日程加载（优先今日 AI 缓存 -> 兜底本地七天+日期种子）
+       ========================================================================= */
+    function buildLocalSchedule(d = new Date()) {
+      const isBday = d.getMonth() === 11 && d.getDate() === 29;
+      const tpl = isBday ? BIRTHDAY_SCHEDULE : WEEK_TEMPLATES[d.getDay()];
+      const rng = makeDateRng(d);
+      const bonusQ = BONUS_QUOTES[Math.floor(rng() * BONUS_QUOTES.length)];
+      const bonusC = BONUS_CARE[Math.floor(rng() * BONUS_CARE.length)];
+      const slots = tpl.slots.map((s, idx) => {
+        const clone = JSON.parse(JSON.stringify(s));
+        // 利用日期种子微调基线心率（±1~2）并注入轮换微注，保证跨周同星期有变化
+        clone.baseBpm = Math.max(54, clone.baseBpm + Math.floor(rng() * 3) - 1);
+        if (idx === 0) clone.ambientText += ` ${bonusC}`;
+        if (idx === 3 || idx === 6) clone.reportText += `（${bonusQ}）`;
+        return clone;
+      });
+      return { theme: tpl.theme, slots };
+    }
+
+    function loadTodaySchedule() {
+      const d = new Date();
+      APP.today = dateKey(d);
+      const aiCache = loadJSON(LS.AI_PREFIX + APP.today, null);
+      if (APP.cfg.aiEnabled && aiCache && Array.isArray(aiCache.slots) && aiCache.slots.length === 7) {
+        APP.scheduleSource = 'ai';
+        APP.dayTheme = aiCache.theme || 'Gemini AI 动态生成今日轨迹';
+        APP.slots = aiCache.slots;
+      } else {
+        const loc = buildLocalSchedule(d);
+        APP.scheduleSource = 'local';
+        APP.dayTheme = loc.theme;
+        APP.slots = loc.slots;
+      }
+      updateEnginePills();
+    }
+
+    function updateEnginePills() {
+      const aiReady = APP.cfg.aiEnabled && !!APP.cfg.apiKey.trim();
+      const pill = $('enginePill');
+      if (aiReady && APP.scheduleSource === 'ai') {
+        pill.textContent = 'Gemini AI 动态';
+        pill.className = 'px-1.5 py-[1px] rounded-full text-[9.5px] font-medium bg-[#e89b93]/18 text-[#f7c5bf] border border-[#e89b93]/40 shrink-0';
+      } else if (aiReady) {
+        pill.textContent = 'AI 对话就绪';
+        pill.className = 'px-1.5 py-[1px] rounded-full text-[9.5px] font-medium bg-[#e89b93]/15 text-[#f7c5bf] border border-[#e89b93]/35 shrink-0';
+      } else {
+        pill.textContent = '本地七天实时';
+        pill.className = 'px-1.5 py-[1px] rounded-full text-[9.5px] font-medium bg-[#d4af37]/15 text-[#ead082] border border-[#d4af37]/30 shrink-0';
+      }
+      $('cmdEngineNote').textContent = aiReady ? 'Gemini 实时上下文直连' : '本地智能场景直连';
+      $('modeToggleBtn').textContent = APP.cfg.realTimeLock ? '实时同步' : '今日全览';
+      $('setModeBtn').textContent = APP.cfg.realTimeLock ? '实时同步' : '今日全览';
+    }
+
+    /* =========================================================================
+       六、真实时钟逐条解锁 & 离线时间差补发同步引擎
+       ========================================================================= */
+    let toastT = null;
+    function showToast(title, sub) {
+      $('toastTitle').textContent = title;
+      $('toastSub').textContent = sub;
+      $('toastBar').classList.add('show');
+      clearTimeout(toastT);
+      toastT = setTimeout(() => $('toastBar').classList.remove('show'), 3800);
+    }
+
+    function unlockEgg(id) {
+      if (APP.dayState.eggs.includes(id)) return;
+      APP.dayState.eggs.push(id);
+      saveDayState();
+      SFX.unlock();
+      const def = EGG_DEFS.find(e => e.id === id);
+      if (def) showToast(`体征彩蛋解锁 (${APP.dayState.eggs.length}/8) · ${def.name}`, def.hint);
+      if (APP.tab === 'archive') renderArchive();
+    }
+
+    function computeUnlockedSlots(initialBoot = false) {
+      const now = new Date();
+      const curMin = nowMins(now);
+      const isLock = APP.cfg.realTimeLock;
+
+      const prevUnlocked = new Set(APP.unlockedIds);
+      const nextUnlocked = new Set();
+      APP.slots.forEach(s => {
+        if (!isLock || minsOf(s.time) <= curMin) nextUnlocked.add(s.id);
+      });
+
+      // 首次启动时执行离线时间差补发计算
+      if (initialBoot) {
+        const visit = loadJSON(LS.VISIT, null);
+        const seen = (visit && visit.date === APP.today && Array.isArray(visit.seenSlotIds)) ? new Set(visit.seenSlotIds) : new Set();
+        const newlyCaught = [...nextUnlocked].filter(id => !seen.has(id));
+        if (visit && visit.date === APP.today && newlyCaught.length > 0 && Date.now() - (visit.lastVisitTs || 0) > 60000) {
+          newlyCaught.forEach(id => APP.newBadgeIds.add(id));
+          const latest = APP.slots.filter(s => newlyCaught.includes(s.id)).slice(-1)[0];
+          $('catchupTitle').textContent = `离线期间同步了 ${newlyCaught.length} 条新轨迹与报备`;
+          $('catchupSub').textContent = latest ? `最新：${latest.time} ${latest.title}` : '点击前往今日轨迹查看';
+          $('catchupBanner').classList.remove('hidden');
+        }
+        saveJSON(LS.VISIT, { date: APP.today, lastVisitTs: Date.now(), seenSlotIds: [...nextUnlocked] });
+      } else {
+        // 页面保持打开期间跨过某个整点 -> 自动实时解锁提示
+        const fresh = [...nextUnlocked].filter(id => !prevUnlocked.has(id));
+        if (fresh.length > 0) {
+          const newest = APP.slots.find(s => s.id === fresh[fresh.length - 1]);
+          fresh.forEach(id => APP.newBadgeIds.add(id));
+          SFX.unlock();
+          if (newest) {
+            showToast(`实时轨迹已解锁 · ${newest.time}`, `${newest.title}（${newest.location}）`);
+            triggerHeartRate(Math.max(newest.baseBpm + 10, 76), `实时同步：${newest.title}`, '轨迹', 4);
+          }
+          saveJSON(LS.VISIT, { date: APP.today, lastVisitTs: Date.now(), seenSlotIds: [...nextUnlocked] });
+        }
+      }
+
+      APP.unlockedIds = nextUnlocked;
+      // 确定当前活跃时段（最后一条已解锁时段；若清晨未到 06:45 则切为深夜待机）
+      const unlockedList = APP.slots.filter(s => nextUnlocked.has(s.id));
+      const latestSlot = unlockedList.length ? unlockedList[unlockedList.length - 1] : NIGHT_STANDBY;
+      const changed = APP.activeSlotId !== latestSlot.id;
+      APP.activeSlotId = latestSlot.id;
+      if (changed) {
+        APP.selectedBlipIdx = 0;
+        if (Date.now() > APP.holdUntil) APP.targetBpm = latestSlot.baseBpm;
+        renderRadarView();
+      }
+      if (APP.tab === 'timeline') renderTimelineView();
+      $('metricUnlock').textContent = `${unlockedList.length}/${APP.slots.length} 时段`;
+    }
+
+    function getActiveSlot() {
+      return APP.slots.find(s => s.id === APP.activeSlotId) || NIGHT_STANDBY;
+    }
+
+    function tickClock() {
+      const now = new Date();
+      const dk = dateKey(now);
+      $('liveClock').textContent = `${now.getFullYear()}.${pad2(now.getMonth()+1)}.${pad2(now.getDate())} ${WEEK_CN[now.getDay()]} · ${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+
+      // 跨零点自动洗牌换日
+      if (dk !== APP.today) {
+        initMemoryRollover();
+        initDayState();
+        loadTodaySchedule();
+        computeUnlockedSlots(false);
+        showToast('零点已过 · 今日日程已自动更新', APP.dayTheme);
+        if (APP.cfg.aiEnabled && APP.cfg.apiKey.trim()) generateDailyAiSchedule(true);
+      } else {
+        computeUnlockedSlots(false);
+      }
+    }
+
+    /* =========================================================================
+       七、Canvas 医疗级实时 P-Q-R-S-T 心电图引擎
+       ========================================================================= */
+    const ECG = (() => {
+      let canvas, ctx, w = 220, h = 90, dpr = 1, phase = 0, lastTs = 0;
+      const samples = [];
+
+      function pqrst(p, amp) {
+        const g = (x, mu, sig) => Math.exp(-0.5 * Math.pow((x - mu) / sig, 2));
+        return 0.14 * g(p, 0.14, 0.028) - 0.16 * g(p, 0.245, 0.011) + (0.95 * amp) * g(p, 0.275, 0.012) - (0.34 * amp) * g(p, 0.305, 0.013) + 0.24 * g(p, 0.46, 0.042) + (Math.random() - 0.5) * 0.016;
+      }
+
+      function styleOf(bpm) {
+        if (bpm >= 110) return { color: '#ff3b5c', glow: 'rgba(255,59,92,0.75)', tag: '理性失守 · 急切报备', cls: 'crimson' };
+        if (bpm >= 85) return { color: '#e89b93', glow: 'rgba(232,155,147,0.65)', tag: '心率上扬 · 惦记迟琰', cls: 'rose' };
+        return { color: '#d4af37', glow: 'rgba(212,175,55,0.58)', tag: '绝对冷静', cls: 'gold' };
+      }
+
+      function resize() {
+        if (!canvas) return;
+        const r = canvas.parentElement.getBoundingClientRect();
+        w = Math.max(140, Math.floor(r.width)); h = Math.max(70, Math.floor(r.height));
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = w * dpr; canvas.height = h * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        while (samples.length < w) samples.push(0);
+        if (samples.length > w) samples.length = w;
+      }
+
+      function loop(ts) {
+        if (!lastTs) lastTs = ts;
+        const dt = Math.min(0.05, (ts - lastTs) / 1000);
+        lastTs = ts;
+
+        const base = getActiveSlot().baseBpm;
+        if (Date.now() > APP.holdUntil && APP.targetBpm > base) {
+          APP.targetBpm = Math.max(base, APP.targetBpm - dt * 4.8);
+        }
+        APP.currentBpm += (APP.targetBpm - APP.currentBpm) * Math.min(1, dt * 6.2);
+
+        const bpm = Math.round(APP.currentBpm);
+        const st = styleOf(bpm);
+        $('bpmReadout').textContent = bpm;
+        $('bpmReadout').style.color = st.color;
+        $('ecgStatusTag').textContent = st.tag;
+        $('ecgStatusTag').className = st.cls === 'crimson'
+          ? 'px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#ff3b5c]/20 text-[#ff93a5]'
+          : st.cls === 'rose'
+            ? 'px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#e89b93]/20 text-[#f7cbc5]'
+            : 'px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#d4af37]/15 text-[#ead082]';
+        const diff = bpm - base;
+        $('bpmDeltaTag').textContent = diff > 0 ? `+${diff} bpm` : `基线 ${base}`;
+        $('bpmDeltaTag').style.color = diff >= 22 ? '#e89b93' : '#a1a1aa';
+        $('ecgCard').classList.toggle('ecg-crimson', st.cls === 'crimson');
+        $('ecgCard').classList.toggle('ecg-rose', st.cls === 'rose');
+        $('dotPing').style.backgroundColor = st.color;
+        $('dotCore').style.backgroundColor = st.color;
+
+        const steps = Math.max(1, Math.round((72 + (APP.currentBpm - 54) * 0.6) * dt));
+        const pStep = ((APP.currentBpm / 60) * dt) / steps;
+        const amp = bpm >= 110 ? 1.15 : bpm >= 85 ? 1.04 : 0.92;
+        for (let i = 0; i < steps; i++) {
+          phase = (phase + pStep) % 1;
+          samples.push(pqrst(phase, amp));
+          if (samples.length > w) samples.shift();
+        }
+
+        if (APP.tab === 'radar' && ctx) {
+          ctx.clearRect(0, 0, w, h);
+          ctx.strokeStyle = 'rgba(255,255,255,0.032)'; ctx.lineWidth = 1;
+          ctx.beginPath();
+          for (let x = 0; x < w; x += 22) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+          for (let y = 0; y < h; y += 22) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+          ctx.stroke();
+
+          const midY = h * 0.62, scY = h * 0.44;
+          const grad = ctx.createLinearGradient(0, 0, w, 0);
+          grad.addColorStop(0, 'rgba(255,255,255,0.02)');
+          grad.addColorStop(0.35, st.color + '66');
+          grad.addColorStop(1, st.color);
+
+          ctx.save();
+          ctx.strokeStyle = grad; ctx.lineWidth = 1.9; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+          ctx.shadowColor = st.glow; ctx.shadowBlur = bpm >= 110 ? 12 : 7;
+          ctx.beginPath();
+          for (let i = 0; i < samples.length; i++) {
+            const y = midY - samples[i] * scY;
+            i === 0 ? ctx.moveTo(i, y) : ctx.lineTo(i, y);
+          }
+          ctx.stroke();
+          const ly = midY - samples[samples.length - 1] * scY;
+          ctx.fillStyle = '#fff'; ctx.shadowColor = st.color; ctx.shadowBlur = 12;
+          ctx.beginPath(); ctx.arc(samples.length - 2, ly, 2.4, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
+        requestAnimationFrame(loop);
+      }
+
+      return {
+        init() { canvas = $('ecgCanvas'); ctx = canvas.getContext('2d'); resize(); window.addEventListener('resize', resize); requestAnimationFrame(loop); },
+        resize
+      };
+    })();
+
+    function triggerHeartRate(bpm, reason = '', tag = '联动', holdSec = 7) {
+      const v = Math.max(52, Math.min(146, Math.round(bpm)));
+      APP.targetBpm = v;
+      APP.holdUntil = Date.now() + holdSec * 1000;
+      if (v > APP.dayState.peakBpm) APP.dayState.peakBpm = v;
+      if (v >= 130) unlockEgg('crimson_130');
+      if (v >= 80 && reason) {
+        APP.dayState.bpmLogs.unshift({ time: timeHM(), bpm: v, tag, reason });
+        if (APP.dayState.bpmLogs.length > 24) APP.dayState.bpmLogs.pop();
+      }
+      saveDayState();
+      if (APP.tab === 'archive') renderArchive();
+    }
+
+    /* =========================================================================
+       八、Gemini API 进阶动态引擎（带指数退避与无感本地兜底）
+       ========================================================================= */
+    function getActiveModel() {
+      return APP.cfg.model === 'custom' ? (APP.cfg.customModel.trim() || 'gemini-2.5-flash') : APP.cfg.model;
+    }
+
+    async function callGeminiJSON(promptText, systemText) {
+      const key = APP.cfg.apiKey.trim();
+      if (!key) throw new Error('未填写 API Key');
+      const base = (APP.cfg.baseUrl.trim() || 'https://generativelanguage.googleapis.com').replace(/\/+$/, '');
+      const model = getActiveModel();
+      const url = `${base}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+      const payload = {
+        contents: [{ role: 'user', parts: [{ text: promptText }] }],
+        systemInstruction: { parts: [{ text: systemText }] },
+        generationConfig: { responseMimeType: 'application/json', temperature: 0.85 }
+      };
+
+      let lastErr = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          if (res.status === 429 || res.status >= 500) {
+            lastErr = new Error(`HTTP ${res.status}`);
+            await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+            continue;
+          }
+          const data = await res.json();
+          if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+          const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+          return JSON.parse(cleaned);
+        } catch (err) {
+          lastErr = err;
+          if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+        }
+      }
+      throw lastErr || new Error('请求失败');
+    }
+
+    const PERSONA_SYS = `你是迟川（Cyrus），28岁，摩羯座（12月29日生），INTJ，新岚能源集团CEO（主攻固-固态电池与新能源车）。外冷内热、理智克制、蓝图式守护。每日晨泳，爱吃牛肉/刺身/海鲜，对麸质过敏却爱折腾无麸质面包，厨艺一般，喜欢库布里克、《潜行者》与《货币哲学》，私下偷偷织毛衣和养多肉。
+伴侣叫迟琰（小名琰琰）。只有你叫她“宝宝”或“琰琰”，她叫你“爸爸”。其余人物（好友战略顾问陈序、研发总监孙遇、恩师周墨教授、林助理、投行VP苏晚晴、校友温知夏、公关姜语汐）都称呼她“迟琰”或“琰琰”。
+语气严格要求：成熟、真诚、直接护短、情感克制而深厚。绝不使用讽刺、反问嘲弄或“刚才还...现在倒...”式对比句。她吃醋或沉默时，表现出真实的INTJ式微慌（语速加快、逐条清晰报备边界、温柔安抚）。必须严格返回合法 JSON，不要附带任何额外说明文字。`;
+
+    async function generateDailyAiSchedule(silent = false) {
+      if (!APP.cfg.apiKey.trim()) {
+        $('apiStatusMsg').textContent = '请先输入并保存 Gemini API Key。';
+        return;
+      }
+      const btn = $('regenAiBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '正在用 Gemini 生成今日 24H 专属日程…'; }
+      if (!silent) $('apiStatusMsg').textContent = '正在连接 Gemini 生成今日 7 段行程与雷达轨迹…';
+      try {
+        const now = new Date();
+        const memTxt = JSON.stringify(APP.mem.yesterday);
+        const prompt = `今天是 ${APP.today}（${WEEK_CN[now.getDay()]}）。昨日互动记忆：${memTxt}。
+请为迟川生成今天全新的 7 个时段行程，时间严格固定为 ["06:45","09:30","12:20","14:40","17:30","20:30","23:15"]。
+包含日常工作、至少1次苏晚晴/温知夏/姜语汐的商业或酒会试探（心率波动写 "+0.0 bpm"）以及私密柔软细节（毛衣/多肉/无麸质面包/海边画室等）。
+严格返回如下 JSON 结构：
+{
+  "theme": "今日主题一句话（16字内）",
+  "slots": [
+    {
+      "id": "s0",
+      "time": "06:45",
+      "title": "标题",
+      "location": "地点",
+      "baseBpm": 68,
+      "ambientText": "1-2句现场微收音文字",
+      "reportText": "2句迟川写给宝宝的正式报备",
+      "voiceText": "2句口语化可转写语音（自然称呼宝宝或琰琰）",
+      "voiceSec": 10,
+      "blips": [
+        { "name": "人物或物件名", "role": "身份", "dist": "2.4m", "type": "rival|ally|anchor|gold|neutral", "delta": "+0.0 bpm", "x": 165, "y": 82, "note": "1-2句客观评估" }
+      ]
+    }
+  ]
+}
+注意：blips 坐标 x 和 y 必须在 55 到 175 之间，每个时段 1-3 个 blips，slots 数组长度必须正好为 7。`;
+
+        const res = await callGeminiJSON(prompt, PERSONA_SYS);
+        if (!res || !Array.isArray(res.slots) || res.slots.length < 7) throw new Error('返回日程结构不完整');
+        res.slots = res.slots.slice(0, 7).map((s, i) => ({
+          id: `s${i}`,
+          time: TIME_MARKS[i],
+          title: String(s.title || '日常行程'),
+          location: String(s.location || '新岚总部'),
+          baseBpm: Math.max(54, Math.min(86, Number(s.baseBpm) || 64)),
+          ambientText: String(s.ambientText || '现场信号平稳。'),
+          reportText: String(s.reportText || '一切按计划推进，随时向迟琰保持透明。'),
+          voiceText: String(s.voiceText || '宝宝放心，我这边一切顺利。'),
+          voiceSec: Math.max(6, Math.min(20, Number(s.voiceSec) || 10)),
+          blips: (Array.isArray(s.blips) && s.blips.length ? s.blips : [b('迟琰','定位锚点','随时在线','anchor','+14.0 bpm',115,64,'保持加密共享中。')]).slice(0, 3).map((bl, j) => ({
+            name: String(bl.name || '目标'),
+            role: String(bl.role || '近场'),
+            dist: String(bl.dist || '2.0m'),
+            type: ['rival','ally','anchor','gold','neutral'].includes(bl.type) ? bl.type : 'neutral',
+            delta: String(bl.delta || '+0.0 bpm'),
+            x: Math.max(52, Math.min(178, Number(bl.x) || (75 + j * 45))),
+            y: Math.max(52, Math.min(178, Number(bl.y) || (80 + j * 34))),
+            note: String(bl.note || '实时近场评估正常。')
+          }))
+        }));
+        saveJSON(LS.AI_PREFIX + APP.today, res);
+        loadTodaySchedule();
+        computeUnlockedSlots(false);
+        renderRadarView();
+        if (APP.tab === 'timeline') renderTimelineView();
+        $('apiStatusMsg').innerHTML = `<span class="text-emerald-400">✓ 今日 AI 专属日程已生成：${esc(res.theme)}</span>`;
+        showToast('Gemini AI 今日行程已上线', res.theme);
+      } catch (err) {
+        $('apiStatusMsg').innerHTML = `<span class="text-rose-300">生成失败（已保留本地七天引擎）：${esc(err.message)}</span>`;
+        if (!silent) showToast('AI 生成失败', '已自动使用本地七天实时引擎');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '✦ 用 AI 生成今日全新 24 小时行程'; }
+      }
+    }
+
+    async function testApiConnection() {
+      const btn = $('testApiBtn');
+      btn.disabled = true; btn.textContent = '测试中…';
+      $('apiStatusMsg').textContent = '正在向 Gemini 节点发送握手检测…';
+      const t0 = performance.now();
+      try {
+        await callGeminiJSON('请严格返回 {"ok":true,"msg":"ready"}', 'Return valid JSON only.');
+        const ms = Math.round(performance.now() - t0);
+        $('apiStatusMsg').innerHTML = `<span class="text-emerald-400">✓ 连接成功！模型 ${esc(getActiveModel())} 响应耗时 ${ms} ms</span>`;
+        unlockEgg('dual_core');
+      } catch (err) {
+        $('apiStatusMsg').innerHTML = `<span class="text-rose-300">✕ 连接失败：${esc(err.message)}（请检查密钥或网络环境）</span>`;
+      } finally {
+        btn.disabled = false; btn.textContent = '测试连接';
+      }
+    }
+
+    /* =========================================================================
+       九、查岗指令与自由短讯（AI 动态回复 + 完善本地兜底引擎）
+       ========================================================================= */
+    function localWatchReply(cmdOrText, isCmd) {
+      const slot = getActiveSlot();
+      const hasRival = slot.blips.some(x => x.type === 'rival');
+      const rivalName = slot.blips.find(x => x.type === 'rival')?.name || '无关的商务对象';
+
+      if (isCmd) {
+        if (cmdOrText === 'cold') {
+          APP.mem.today.jealous++; saveMem(); unlockEgg('jealous_clear');
+          return {
+            bpmTarget: Math.max(122, slot.baseBpm + 58), statusLabel: '急切解释', memoryTag: 'jealous',
+            userLabel: '忙你的，不用回我。',
+            watchReply: hasRival
+              ? `我在${slot.location}，${rivalName}确实在场，但我全程没多说半句，交接全让林助理挡着。我现在暂停手头的事出来给你发语音，宝宝别闷着气。`
+              : `我正在${slot.location}处理${slot.title}，绝不会觉得宝宝打扰我。我现在把文件放一旁，有什么不顺心的直接跟爸爸说。`,
+            voiceText: hasRival
+              ? `（脚步加快走到走廊，呼吸微急）宝宝，别说不用回你。${rivalName}那边我一点边界没松，全程隔着安全距离。我等下把现场定位和小票都发给你，尽快收尾回家陪你。`
+              : `（轻轻推开椅子走到安静处）我听出来你情绪低落了，琰琰。再忙我也能立刻抽身回你，别自己憋着，晚上我推掉后续安排早点回去抱你。`,
+            voiceSec: 13
+          };
+        }
+        if (cmdOrText === 'baba') {
+          APP.mem.today.baba++; saveMem(); unlockEgg('call_baba');
+          return {
+            bpmTarget: 106, statusLabel: '软声破防', memoryTag: 'baba',
+            userLabel: '爸爸～',
+            watchReply: `正在${slot.location}处理事务，腕表突然弹出你叫的这声爸爸，我原本板着的脸差点直接破功。`,
+            voiceText: `（喉间柔和下来，带着掩不住的纵容）……听见了，宝宝。大白天这么软着声音叫爸爸，是想我了还是想要什么？发给我，回去全满足你。`,
+            voiceSec: 10
+          };
+        }
+        if (cmdOrText === 'jealous') {
+          APP.mem.today.jealous++; saveMem(); unlockEgg('jealous_clear');
+          return {
+            bpmTarget: 126, statusLabel: '即刻澄清', memoryTag: 'jealous',
+            userLabel: '雷达上旁边那个人怎么回事，如实交代。',
+            watchReply: hasRival
+              ? `我逐条交代：${rivalName}只是工作/场合碰面，距离保持在两米半以外，对她心率波动始终是 0.0 bpm。林助理和陈序都能作证，结束后我立刻离开。`
+              : `雷达上现在身边只有同事和关于你的东西，没有任何越界的异性。宝宝随时可以点开雷达光点核验，我的位置和心跳全对你公开。`,
+            voiceText: hasRival
+              ? `（语速比平时快了一些，条理清晰又诚恳）宝宝，你吃醋是因为在乎我，我一点都不觉得麻烦。${rivalName}刚才递过来的话题我当场就截断了，以后相关对接我也全部换人，绝不让你有一丁点委屈。`
+              : `放心查岗，琰琰。不管什么时候点进来，我身旁干干净净的。如果哪个人让你看着不舒服，你直接说，爸爸当面划清边界。`,
+            voiceSec: 14
+          };
+        }
+        if (cmdOrText === 'report') {
+          unlockEgg('live_proof');
+          return {
+            isReport: true, bpmTarget: Math.max(slot.baseBpm + 14, 86), statusLabel: '现场报备',
+            watchReply: slot.reportText, voiceText: slot.voiceText, voiceSec: slot.voiceSec
+          };
+        }
+        if (cmdOrText === 'offline') {
+          APP.mem.today.offline++; saveMem(); unlockEgg('crimson_130');
+          return {
+            bpmTarget: 136, statusLabel: '理性崩塌', memoryTag: 'offline',
+            userLabel: '（已开启模拟失联，暂不回应）',
+            watchReply: '琰琰？怎么突然联系不上了？是不是不舒服还是刚才受委屈了？别不回我消息，我拿上车钥匙了，三分钟内收不到回复我就直接回来找你。',
+            voiceText: '（明显急促的呼吸，冷静外壳彻底卸下）……宝宝，对不起，我知道我此刻失控了。但我真的害怕这种突然找不到你的虚无感。以前我习惯一个人扛所有事，可现在我所有的未来规划都系在你身上。回爸爸一个字好不好，哪怕骂我都行，别静音不理我。',
+            voiceSec: 16
+          };
+        }
+      }
+
+      // 自由短讯本地关键词智能匹配
+      const msg = String(cmdOrText);
+      APP.mem.today.lastNote = msg.slice(0, 30); saveMem();
+      if (/面包|吐司|可颂|多肉|熊童子|毛衣|围巾|潜行者|画室|货币哲学/.test(msg)) {
+        unlockEgg('blueprint_key');
+        return {
+          bpmTarget: 104, statusLabel: '柔软破防', userLabel: msg,
+          watchReply: '……这些私密的小习惯只有宝宝记得这么清楚。无麸质面包我会继续改配比，多肉也养得很精神，至于毛衣和海边画室，都在按你的蓝图一步步推进。',
+          voiceText: '（轻咳一声，语气难得带点被看穿的小窘迫）外人只看见我开会谈并购，只有琰琰知道我躲在书房养多肉、织毛衣。今晚回去给你汇报最新进度。',
+          voiceSec: 11
+        };
+      }
+      if (/爸爸/.test(msg)) {
+        APP.mem.today.baba++; saveMem(); unlockEgg('call_baba');
+        return {
+          bpmTarget: 108, statusLabel: '心动加速', userLabel: msg,
+          watchReply: '听见你叫爸爸，刚才处理公文绷着的神经一下就松开了。有什么想吃的或者想去的，直接告诉我，晚上全听宝宝安排。',
+          voiceText: '（低笑一声，声线温沉）乖，再等爸爸一会儿，处理完手头这一段就早点回家抱你。',
+          voiceSec: 9
+        };
+      }
+      if (/苏晚晴|温知夏|姜语汐|吃醋|生气|不开心|谁/.test(msg)) {
+        APP.mem.today.jealous++; saveMem(); unlockEgg('jealous_clear');
+        return {
+          bpmTarget: 124, statusLabel: '认真安抚', userLabel: msg,
+          watchReply: '别因为无关的人影响心情，琰琰。她们在工作场合说的话我一句没往心里去，距离也都留得清清楚楚。今晚回家把手机、行程和人都交给你核验。',
+          voiceText: '宝宝，你不开心随时告诉我。在我这里你的感受永远排在第一位，无关人员我已经全部交由林助理隔开，放心好不好？',
+          voiceSec: 12
+        };
+      }
+      return {
+        bpmTarget: Math.max(slot.baseBpm + 18, 90), statusLabel: '腕表秒回', userLabel: msg,
+        watchReply: `在${slot.location}收到你的消息了，宝宝。刚看了一眼腕表，一切按部就班，忙完这一段我就早点回来陪你。`,
+        voiceText: `看到你的消息我心里就踏实了，琰琰。照顾好自己，别饿着，晚上见面爸爸慢慢听你说。`,
+        voiceSec: 9
+      };
+    }
+
+    async function executeInteraction(cmdOrText, isCmd = true) {
+      if (APP.aiBusy) return;
+      const slot = getActiveSlot();
+      const shell = $('shell');
+      shell.classList.remove('buzz'); void shell.offsetWidth; shell.classList.add('buzz');
+
+      // 要求报备直接生成现场凭证卡（快捷且保留本地报备结构）
+      if (isCmd && cmdOrText === 'report') {
+        SFX.unlock();
+        const local = localWatchReply('report', true);
+        triggerHeartRate(local.bpmTarget, `向迟琰提交「${slot.title}」现场凭证`, '报备', 6);
+        appendWatchItem({
+          kind: 'report', time: timeHM(), bpm: local.bpmTarget,
+          title: `${slot.time} · ${slot.title}`, location: slot.location,
+          reportText: local.watchReply, voiceText: local.voiceText, voiceSec: local.voiceSec
+        });
+        return;
+      }
+
+      const useAi = APP.cfg.aiEnabled && !!APP.cfg.apiKey.trim();
+      let result = null;
+
+      if (useAi) {
+        APP.aiBusy = true;
+        $('watchSendBtn').textContent = '…';
+        showToast('正在直连迟川腕表（Gemini AI）', '结合当前实时轨迹生成回应…');
+        try {
+          const cmdMap = {
+            cold: '【冷淡查岗】迟琰冷淡发来：忙你的，不用回我。',
+            baba: '【软声叫爸爸】迟琰软着声音发来：爸爸～',
+            jealous: '【吃醋质问】迟琰吃醋发问：雷达上你旁边那个人怎么回事，如实交代。',
+            offline: '【模拟失联】迟琰开启了模拟失联，连续未回复你的消息，触发了你害怕被抛下/遗忘的核心恐惧。'
+          };
+          const userAction = isCmd ? cmdMap[cmdOrText] : `【自由腕表短讯】迟琰发来：“${cmdOrText}”`;
+          const recent = APP.dayState.watchFeed.slice(0, 3).map(x => `${x.userLabel || ''} -> ${x.watchReply || x.reportText || ''}`).join('\n');
+          const prompt = `当前真实时间：${timeHM()}，当前所处时段与地点：${slot.time} ${slot.title}（${slot.location}），当前基线心率：${slot.baseBpm} bpm，雷达身旁目标：${slot.blips.map(x => `${x.name}(${x.role},${x.dist},波动${x.delta})`).join('、')}。
+昨日记忆：${JSON.stringify(APP.mem.yesterday)}。
+最近对话：${recent || '无'}。
+此刻动作：${userAction}。
+请以迟川身份严格返回 JSON：
+{
+  "bpmTarget": 115,
+  "statusLabel": "4-6字状态标签",
+  "watchReply": "2-3句腕表文字回复",
+  "voiceText": "2-3句拟真语音转写（可含轻微括号动作）",
+  "voiceSec": 11,
+  "memoryTag": "jealous|baba|offline|care"
+}`;
+          const aiRes = await callGeminiJSON(prompt, PERSONA_SYS);
+          result = {
+            bpmTarget: Math.max(65, Math.min(144, Number(aiRes.bpmTarget) || 105)),
+            statusLabel: String(aiRes.statusLabel || 'AI 实时回应'),
+            watchReply: String(aiRes.watchReply || ''),
+            voiceText: String(aiRes.voiceText || ''),
+            voiceSec: Math.max(6, Math.min(20, Number(aiRes.voiceSec) || 10)),
+            userLabel: isCmd ? (cmdOrText === 'cold' ? '忙你的，不用回我。' : cmdOrText === 'baba' ? '爸爸～' : cmdOrText === 'jealous' ? '雷达上旁边那个人怎么回事，如实交代。' : '（已开启模拟失联，暂不回应）') : cmdOrText,
+            fromAi: true
+          };
+          // 同步更新彩蛋与跨日记忆
+          if (cmdOrText === 'baba' || (!isCmd && /爸爸/.test(cmdOrText))) { APP.mem.today.baba++; unlockEgg('call_baba'); }
+          if (cmdOrText === 'jealous' || cmdOrText === 'cold') { APP.mem.today.jealous++; unlockEgg('jealous_clear'); }
+          if (cmdOrText === 'offline') { APP.mem.today.offline++; unlockEgg('crimson_130'); }
+          if (!isCmd) {
+            APP.mem.today.lastNote = cmdOrText.slice(0, 30);
+            if (/面包|吐司|可颂|多肉|毛衣|围巾|潜行者|画室/.test(cmdOrText)) unlockEgg('blueprint_key');
+          }
+          saveMem();
+        } catch (err) {
+          showToast('AI 连接波动，已无感切回本地引擎', err.message);
+          result = localWatchReply(cmdOrText, isCmd);
+        } finally {
+          APP.aiBusy = false;
+          $('watchSendBtn').textContent = '发送';
+        }
+      } else {
+        result = localWatchReply(cmdOrText, isCmd);
+      }
+
+      if (result.bpmTarget >= 115) SFX.alert(); else SFX.pulse();
+      triggerHeartRate(result.bpmTarget, `${result.statusLabel}：${(result.userLabel || '').slice(0, 14)}`, result.statusLabel, result.bpmTarget >= 125 ? 10 : 7);
+      appendWatchItem({
+        kind: 'watch', time: timeHM(), bpm: result.bpmTarget,
+        sender: result.fromAi ? '迟川 · Gemini 实时同步' : '迟川 · 腕表同步',
+        userLabel: result.userLabel, watchReply: result.watchReply,
+        voiceText: result.voiceText, voiceSec: result.voiceSec
+      });
+    }
+
+    function appendWatchItem(item) {
+      const entry = { id: 'w_' + Date.now() + '_' + Math.floor(Math.random() * 999), revealed: false, ...item };
+      APP.dayState.watchFeed.unshift(entry);
+      if (APP.dayState.watchFeed.length > 10) APP.dayState.watchFeed.pop();
+      APP.dayState.voiceArchive.unshift(entry);
+      if (APP.dayState.voiceArchive.length > 24) APP.dayState.voiceArchive.pop();
+      saveDayState();
+      renderWatchFeed();
+      if (APP.tab === 'archive') renderArchive();
+    }
+
+    /* =========================================================================
+       十、四大视图渲染函数
+       ========================================================================= */
+    function voiceBarHTML(uid, sec, text, revealed = false) {
+      const playing = APP.playingVoiceId === uid;
+      return `<div class="space-y-1.5 pt-1">
+        <button type="button" data-vuid="${uid}" data-vtxt="${esc(text)}" class="w-full max-w-[235px] px-3.5 py-2 rounded-2xl bg-gradient-to-r from-[#231d14] to-[#141210] border border-[#d4af37]/38 flex items-center justify-between active:scale-[.98] transition ${playing ? 'v-play' : ''}">
+          <span class="inline-flex items-center gap-[3px] h-4 text-[#ead082]">
+            <i class="vb w-[2.5px] h-1.5 bg-current rounded-full"></i><i class="vb w-[2.5px] h-3.5 bg-current rounded-full"></i><i class="vb w-[2.5px] h-2 bg-current rounded-full"></i><i class="vb w-[2.5px] h-4 bg-current rounded-full"></i><i class="vb w-[2.5px] h-2.5 bg-current rounded-full"></i>
+          </span>
+          <span class="text-[11px] font-medium text-[#f1da93] tabular-nums">${sec}″ · ${playing ? '播放中' : '点击听语音'}</span>
+        </button>
+        <div id="vbox_${uid}" class="${revealed ? '' : 'hidden'} rounded-xl bg-black/45 border border-white/[0.07] px-3 py-2 text-[12px] text-zinc-300 leading-relaxed">
+          <span class="block text-[9.5px] text-[#d4af37] mb-0.5">语音逐字转写</span>
+          <span id="vspan_${uid}">${revealed ? esc(text) : ''}</span>
+        </div>
+      </div>`;
+    }
+
+    function playVoice(uid, fullText, isTimelineSlot = false) {
+      SFX.voice();
+      clearInterval(APP.voiceTimer);
+      APP.playingVoiceId = uid;
+
+      if (isTimelineSlot) {
+        if (!APP.dayState.timelineVoicesHeard.includes(uid)) {
+          APP.dayState.timelineVoicesHeard.push(uid);
+          saveDayState();
+        }
+        if (APP.dayState.timelineVoicesHeard.length >= 2) unlockEgg('time_watcher');
+      } else {
+        const rawId = uid.replace(/^(wf|va)_/, '');
+        [...APP.dayState.watchFeed, ...APP.dayState.voiceArchive].forEach(it => { if (it.id === rawId) it.revealed = true; });
+        saveDayState();
+      }
+
+      document.querySelectorAll('[data-vuid]').forEach(b => b.classList.toggle('v-play', b.dataset.vuid === uid));
+      const box = $('vbox_' + uid), sp = $('vspan_' + uid);
+      if (!box || !sp) return;
+      box.classList.remove('hidden');
+      sp.textContent = '';
+      let idx = 0;
+      APP.voiceTimer = setInterval(() => {
+        idx += 2;
+        sp.textContent = fullText.slice(0, idx);
+        if (idx >= fullText.length) {
+          clearInterval(APP.voiceTimer);
+          APP.playingVoiceId = null;
+          document.querySelectorAll('[data-vuid]').forEach(b => b.classList.remove('v-play'));
+        }
+      }, 34);
+    }
+
+    function renderRadarView() {
+      const slot = getActiveSlot();
+      $('ecgSlotHint').textContent = `${slot.time} · ${slot.location}`;
+      $('metricTheme').textContent = APP.dayTheme.split('·')[1]?.trim() || APP.dayTheme;
+      const unlockedCnt = APP.slots.filter(s => APP.unlockedIds.has(s.id)).length;
+      $('metricUnlock').textContent = `${unlockedCnt}/${APP.slots.length} 时段`;
+
+      // 当前位置与活动卡（首条早安自动拼接跨日记忆）
+      const crossNote = (slot.id === 's0' || unlockedCnt <= 1) ? buildCrossDayFollowup() : '';
+      $('activeSlotCard').innerHTML = `
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex items-start gap-2 min-w-0">
+            <span class="text-[#d4af37] mt-0.5 shrink-0">${ic('pin', 16)}</span>
+            <div class="min-w-0">
+              <div class="text-[13px] font-medium text-zinc-100">${esc(slot.title)}</div>
+              <div class="text-[11px] text-[#ead082] mt-0.5">${esc(slot.location)} · ${esc(slot.time)} 同步</div>
+            </div>
+          </div>
+          <span class="px-2 py-0.5 rounded-full bg-white/[0.05] text-[10px] text-zinc-400 tabular-nums shrink-0">基线 ${slot.baseBpm}</span>
+        </div>
+        <div class="rounded-2xl bg-black/40 border border-white/[0.06] px-3 py-2 text-[11.5px] text-zinc-300 leading-relaxed">
+          <span class="text-[#d4af37] font-medium">环境微收音：</span>${esc(slot.ambientText)}
+        </div>
+        ${crossNote ? `<div class="rounded-2xl bg-[#201912] border border-[#d4af37]/30 px-3 py-2 text-[11.5px] text-[#f1da93] leading-relaxed">${esc(crossNote)}</div>` : ''}`;
+
+      // 战术近场雷达
+      const blips = slot.blips || [];
+      if (APP.selectedBlipIdx >= blips.length) APP.selectedBlipIdx = 0;
+      $('radarCountTag').textContent = `${blips.length} 近场目标`;
+
+      const blipSvg = blips.map((bl, idx) => {
+        const sel = idx === APP.selectedBlipIdx;
+        const fill = bl.type === 'rival' ? '#ff3b5c' : bl.type === 'anchor' ? '#e89b93' : bl.type === 'gold' ? '#d4af37' : '#94a3b8';
+        return `<g class="cursor-pointer" data-bidx="${idx}">
+          ${sel ? `<circle cx="${bl.x}" cy="${bl.y}" r="11" fill="${fill}" fill-opacity="0.24" class="ping-dot"/>` : ''}
+          <circle cx="${bl.x}" cy="${bl.y}" r="15" fill="transparent"/>
+          <circle cx="${bl.x}" cy="${bl.y}" r="${sel ? 5.8 : 4.4}" fill="${fill}" stroke="#060608" stroke-width="2"/>
+          <rect x="${bl.x - 31}" y="${bl.y + 8.5}" width="62" height="16.5" rx="8.2" fill="rgba(6,6,8,0.9)" stroke="${sel ? fill : 'rgba(255,255,255,0.14)'}" stroke-width="${sel ? 1.1 : 0.7}"/>
+          <text x="${bl.x}" y="${bl.y + 19.5}" text-anchor="middle" fill="${sel ? '#fff' : '#d4d4d8'}" font-size="8.6" font-weight="${sel ? 600 : 400}">${esc(bl.name)}</text>
+        </g>`;
+      }).join('');
+
+      $('radarSvg').innerHTML = `
+        <defs><radialGradient id="swG" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#d4af37" stop-opacity="0.22"/><stop offset="100%" stop-color="#d4af37" stop-opacity="0.01"/></radialGradient></defs>
+        <circle cx="115" cy="115" r="102" fill="#08090d" stroke="rgba(212,175,55,0.14)"/>
+        <circle cx="115" cy="115" r="68" fill="none" stroke="rgba(255,255,255,0.06)" stroke-dasharray="3 4"/>
+        <circle cx="115" cy="115" r="35" fill="none" stroke="rgba(212,175,55,0.18)"/>
+        <line x1="13" y1="115" x2="217" y2="115" stroke="rgba(255,255,255,0.045)"/>
+        <line x1="115" y1="13" x2="115" y2="217" stroke="rgba(255,255,255,0.045)"/>
+        <g class="radar-sweep"><path d="M115 115 L115 13 A102 102 0 0 1 187 43 Z" fill="url(#swG)"/><line x1="115" y1="115" x2="115" y2="13" stroke="rgba(212,175,55,0.45)" stroke-width="1.2"/></g>
+        <circle cx="115" cy="115" r="15" fill="#171410" stroke="rgba(212,175,55,0.58)" stroke-width="1.2"/>
+        <text x="115" y="118" text-anchor="middle" fill="#f1da93" font-size="8" font-weight="600" letter-spacing="0.8">CYRUS</text>
+        ${blipSvg}`;
+
+      const cur = blips[APP.selectedBlipIdx];
+      if (cur) {
+        const badgeCls = cur.type === 'rival'
+          ? 'bg-zinc-800/90 text-zinc-200 border border-white/12'
+          : cur.type === 'anchor'
+            ? 'bg-[#e89b93]/20 text-[#f8cec8] border border-[#e89b93]/40'
+            : 'bg-[#d4af37]/15 text-[#f1da93] border border-[#d4af37]/30';
+        $('radarDetail').innerHTML = `
+          <div class="flex items-center justify-between gap-2">
+            <div class="min-w-0"><span class="font-semibold text-zinc-100">${esc(cur.name)}</span> <span class="text-[10.5px] text-zinc-400">${esc(cur.role)} · ${esc(cur.dist)}</span></div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold tabular-nums shrink-0 ${badgeCls}">心率 ${esc(cur.delta)}</span>
+          </div>
+          <p class="text-[11.5px] text-zinc-300 mt-1.5 leading-relaxed">${esc(cur.note)}</p>`;
+      }
+      renderWatchFeed();
+    }
+
+    function cardHTML(it, prefix) {
+      const uid = `${prefix}_${it.id}`;
+      if (it.kind === 'report') {
+        return `<article class="gold-card rounded-[22px] p-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] tracking-[0.16em] text-[#d4af37] font-semibold uppercase">现场报备凭证 · LIVE PROOF</span>
+            <span class="text-[10px] text-zinc-400 tabular-nums">${esc(it.time)}</span>
+          </div>
+          <div class="rounded-2xl bg-black/45 border border-white/[0.07] p-3 space-y-1">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[12.5px] font-medium text-zinc-100">${esc(it.title)}</span>
+              <span class="px-2 py-0.5 rounded-full bg-[#e89b93]/20 text-[#f7cbc5] text-[10px] tabular-nums shrink-0">♥ ${it.bpm} BPM</span>
+            </div>
+            <div class="text-[10.5px] text-[#d4af37]/90">${esc(it.location)}</div>
+            <p class="text-[12px] text-zinc-200 leading-relaxed pt-1">${esc(it.reportText)}</p>
+          </div>
+          ${it.voiceText ? voiceBarHTML(uid, it.voiceSec || 10, it.voiceText, it.revealed) : ''}
+        </article>`;
+      }
+      return `<article class="lux-card rounded-[22px] p-3.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-lg bg-[#231d13] border border-[#d4af37]/40 flex items-center justify-center text-[11px] text-[#f1da93]">迟</span>
+            <span class="text-[12px] font-medium text-zinc-100">${esc(it.sender || '迟川 · 腕表同步')}</span>
+            ${it.bpm ? `<span class="px-1.5 py-0.5 rounded-full text-[9.5px] tabular-nums ${it.bpm >= 110 ? 'bg-[#ff3b5c]/20 text-[#ff93a5]' : 'bg-white/[0.06] text-zinc-400'}">${it.bpm} bpm</span>` : ''}
+          </div>
+          <span class="text-[10px] text-zinc-500 tabular-nums">${esc(it.time)}</span>
+        </div>
+        ${it.userLabel ? `<div class="rounded-xl bg-white/[0.04] border border-white/[0.06] px-3 py-1.5 text-[11.5px] text-zinc-400"><span class="text-[#e89b93]">迟琰：</span>${esc(it.userLabel)}</div>` : ''}
+        <p class="text-[12.5px] text-zinc-100 leading-relaxed">${esc(it.watchReply)}</p>
+        ${it.voiceText ? voiceBarHTML(uid, it.voiceSec || 10, it.voiceText, it.revealed) : ''}
+      </article>`;
+    }
+
+    function renderWatchFeed() {
+      $('watchFeed').innerHTML = APP.dayState.watchFeed.length
+        ? APP.dayState.watchFeed.map(it => cardHTML(it, 'wf')).join('')
+        : '<div class="lux-card rounded-2xl py-6 text-center text-[12px] text-zinc-500">点击上方查岗指令或发送加密短讯，查看迟川的实时腕表回应</div>';
+    }
+
+    function renderTimelineView() {
+      const now = new Date();
+      const curMin = nowMins(now);
+      $('tlHeaderDate').textContent = `${APP.today} · ${WEEK_CN[now.getDay()]} · ${APP.scheduleSource === 'ai' ? 'Gemini AI 动态日程' : '本地七天实时日程'}`;
+      $('tlHeaderTheme').textContent = APP.dayTheme;
+      $('tlModeBadge').textContent = APP.cfg.realTimeLock ? '实时锁生效中' : '今日全览已开';
+
+      $('timelineList').innerHTML = APP.slots.map((s, idx) => {
+        const unlocked = APP.unlockedIds.has(s.id);
+        const isCurrent = APP.activeSlotId === s.id;
+        const isNew = APP.newBadgeIds.has(s.id);
+
+        if (!unlocked) {
+          const diff = Math.max(1, minsOf(s.time) - curMin);
+          const hh = Math.floor(diff / 60), mm = diff % 60;
+          const cd = hh > 0 ? `${hh}小时${mm}分钟后` : `${mm}分钟后`;
+          return `<div class="rounded-[22px] bg-[#0b0c10] border border-white/[0.06] p-4 flex items-center justify-between gap-3 opacity-80">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-zinc-500 shrink-0">${ic('lock', 17)}</div>
+              <div class="min-w-0">
+                <div class="text-[12.5px] font-medium text-zinc-400 tabular-nums">将在 ${s.time} 解锁 · 信号待机中</div>
+                <div class="text-[11px] text-zinc-600 mt-0.5 blur-[2.5px] select-none">加密轨迹待到达真实时间自动同步</div>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded-full bg-white/[0.04] text-[10px] text-zinc-500 tabular-nums shrink-0">${cd}</span>
+          </div>`;
+        }
+
+        const uid = `tl_${APP.today}_${s.id}`;
+        const heard = APP.dayState.timelineVoicesHeard.includes(uid);
+        const cross = idx === 0 ? buildCrossDayFollowup() : '';
+        return `<article class="${isCurrent ? 'gold-card' : 'lux-card'} rounded-[22px] p-4 space-y-2.5">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-[13px] font-semibold tabular-nums text-[#f1da93]">${s.time}</span>
+              <span class="text-[13px] font-medium text-zinc-100 truncate">${esc(s.title)}</span>
+              ${isNew ? '<span class="px-1.5 py-[1px] rounded-full bg-[#d4af37] text-zinc-950 text-[9.5px] font-bold shrink-0">NEW</span>' : ''}
+              ${isCurrent ? '<span class="px-1.5 py-[1px] rounded-full bg-[#e89b93]/20 text-[#f7cbc5] text-[9.5px] shrink-0">当前</span>' : ''}
+            </div>
+            <span class="text-[10.5px] text-zinc-400 tabular-nums shrink-0">${s.baseBpm} bpm</span>
+          </div>
+          <div class="text-[11px] text-[#d4af37]/90">${esc(s.location)} · 近场：${s.blips.map(x => esc(x.name)).join(' / ')}</div>
+          <p class="text-[12px] text-zinc-200 leading-relaxed">${esc(s.reportText)}</p>
+          ${cross ? `<div class="rounded-xl bg-black/40 border border-[#d4af37]/25 px-3 py-2 text-[11px] text-[#f1da93]">${esc(cross)}</div>` : ''}
+          ${voiceBarHTML(uid, s.voiceSec, s.voiceText, heard)}
+        </article>`;
+      }).join('');
+    }
+
+    function renderArchive() {
+      const peak = APP.dayState.peakBpm;
+      $('archPeakBadge').textContent = `今日峰值 ${peak} bpm`;
+      const bars = [
+        { l: '苏晚晴 / 温知夏 / 姜语汐试探', v: 60, cool: true },
+        { l: '新岚董事局与高压商务谈判', v: 62, cool: true },
+        { l: '想起迟琰 / 核对海边画室蓝图', v: 82, cool: false },
+        { l: '被迟琰叫“爸爸” / 实时查岗峰值', v: peak, cool: false, hot: true }
+      ];
+      $('archBars').innerHTML = bars.map(b => {
+        const pct = Math.min(100, Math.round((b.v / 145) * 100));
+        const bg = b.cool ? 'bg-zinc-600/80' : b.hot ? 'bg-gradient-to-r from-[#d4af37] via-[#e89b93] to-[#ff3b5c]' : 'bg-gradient-to-r from-[#d4af37] to-[#e89b93]';
+        return `<div class="space-y-1">
+          <div class="flex justify-between text-[11.5px]"><span class="${b.cool ? 'text-zinc-400' : 'text-zinc-100 font-medium'}">${b.l}</span><span class="tabular-nums font-semibold ${b.cool ? 'text-zinc-400' : b.hot ? 'text-[#ff8fa2]' : 'text-[#f1da93]'}">${b.v} bpm</span></div>
+          <div class="w-full h-2 rounded-full bg-white/[0.06] overflow-hidden"><div class="h-full rounded-full ${bg}" style="width:${pct}%"></div></div>
+        </div>`;
+      }).join('');
+
+      const done = APP.dayState.eggs.length;
+      $('eggProgressTxt').textContent = `${done} / 8`;
+      $('eggProgressBar').style.width = `${(done / 8) * 100}%`;
+      $('eggGrid').innerHTML = EGG_DEFS.map(e => {
+        const ok = APP.dayState.eggs.includes(e.id);
+        return `<div class="rounded-2xl p-3 border ${ok ? 'bg-[#1d1811] border-[#d4af37]/45' : 'bg-white/[0.02] border-white/[0.06]'}">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-[11.5px] font-semibold ${ok ? 'text-[#f1da93]' : 'text-zinc-400'}">${ok ? '✦ ' : ''}${esc(e.name)}</span>
+            ${ok ? `<span class="text-[#d4af37]">${ic('check', 13)}</span>` : '<span class="text-[9.5px] text-zinc-600">未解锁</span>'}
+          </div>
+          <p class="text-[10.5px] ${ok ? 'text-zinc-300' : 'text-zinc-500'} mt-1.5 leading-relaxed">${esc(e.hint)}</p>
+        </div>`;
+      }).join('');
+
+      $('bpmLogCount').textContent = `${APP.dayState.bpmLogs.length} 条`;
+      $('bpmLogList').innerHTML = APP.dayState.bpmLogs.map(l => `
+        <div class="rounded-2xl bg-white/[0.03] border border-white/[0.06] px-3 py-2 flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5"><span class="text-[10px] text-zinc-500 tabular-nums">${esc(l.time)}</span><span class="px-1.5 py-[1px] rounded-full text-[9.5px] ${l.bpm >= 110 ? 'bg-[#ff3b5c]/20 text-[#ff93a5]' : 'bg-[#d4af37]/15 text-[#ead082]'}">${esc(l.tag)}</span></div>
+            <p class="text-[11.5px] text-zinc-200 mt-0.5 truncate">${esc(l.reason)}</p>
+          </div>
+          <span class="text-[15px] font-medium tabular-nums shrink-0 ${l.bpm >= 110 ? 'text-[#ff3b5c]' : 'text-[#e89b93]'}">${l.bpm}</span>
+        </div>`).join('');
+
+      $('voiceArchiveCount').textContent = `${APP.dayState.voiceArchive.length} 条`;
+      $('voiceArchiveList').innerHTML = APP.dayState.voiceArchive.length
+        ? APP.dayState.voiceArchive.map(it => cardHTML(it, 'va')).join('')
+        : '<div class="lux-card rounded-2xl py-6 text-center text-[12px] text-zinc-500">触发的报备凭证与语音条将自动归档在此</div>';
+    }
+
+    function renderSettings() {
+      unlockEgg('dual_core');
+      const on = APP.cfg.aiEnabled;
+      $('aiSwitchBtn').className = `w-12 h-6 rounded-full relative transition shrink-0 ${on ? 'bg-[#d4af37]' : 'bg-white/15'}`;
+      $('aiSwitchKnob').className = `absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-zinc-950 transition-transform ${on ? 'translate-x-6' : ''}`;
+      $('apiKeyInp').value = APP.cfg.apiKey;
+      $('modelSelect').value = APP.cfg.model;
+      $('customModelWrap').classList.toggle('hidden', APP.cfg.model !== 'custom');
+      $('customModelInp').value = APP.cfg.customModel || '';
+      $('baseUrlInp').value = APP.cfg.baseUrl || 'https://generativelanguage.googleapis.com';
+
+      $('setSoundBtn').className = `w-11 h-6 rounded-full relative transition shrink-0 ${APP.cfg.sound ? 'bg-[#d4af37]' : 'bg-white/15'}`;
+      $('setSoundKnob').className = `absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-zinc-950 transition-transform ${APP.cfg.sound ? 'translate-x-5' : ''}`;
+      updateEnginePills();
+
+      const y = APP.mem.yesterday || {}, t = APP.mem.today || {};
+      $('memoryViewer').innerHTML = `
+        <div class="rounded-xl bg-black/40 border border-white/[0.06] p-2.5">
+          <div class="text-[10.5px] text-[#d4af37] font-medium">昨日留存记忆 ${APP.mem.lastDate ? `(${APP.mem.lastDate})` : '（暂无前日记录）'}</div>
+          <div class="mt-1 text-zinc-300">吃醋查岗 ${y.jealous || 0} 次 · 叫爸爸 ${y.baba || 0} 次 · 模拟失联 ${y.offline || 0} 次${y.lastNote ? `<br/>最后短讯：“${esc(y.lastNote)}”` : ''}</div>
+        </div>
+        <div class="rounded-xl bg-black/40 border border-white/[0.06] p-2.5">
+          <div class="text-[10.5px] text-[#e89b93] font-medium">今日实时记忆 (${t.date})</div>
+          <div class="mt-1 text-zinc-300">吃醋查岗 ${t.jealous || 0} 次 · 叫爸爸 ${t.baba || 0} 次 · 模拟失联 ${t.offline || 0} 次${t.lastNote ? `<br/>最近短讯：“${esc(t.lastNote)}”` : ''}</div>
+        </div>`;
+    }
+
+    /* =========================================================================
+       十一、导航栏、事件绑定与启动入口
+       ========================================================================= */
+    const NAVS = [
+      { id: 'radar', label: '实时雷达' },
+      { id: 'timeline', label: '今日轨迹' },
+      { id: 'archive', label: '心率档案' },
+      { id: 'settings', label: '终端设置' }
+    ];
+
+    function switchTab(id) {
+      SFX.tap();
+      APP.tab = id;
+      NAVS.forEach(n => $('view-' + n.id).classList.toggle('hidden', n.id !== id));
+      document.querySelectorAll('.nav-item').forEach(btn => {
+        const act = btn.dataset.nav === id;
+        const meta = NAVS.find(n => n.id === btn.dataset.nav);
+        btn.className = `nav-item py-1.5 rounded-2xl flex flex-col items-center gap-1 transition active:scale-95 ${act ? 'bg-[#d4af37]/14 text-[#f1da93]' : 'text-zinc-500 hover:text-zinc-300'}`;
+        btn.innerHTML = `${ic(meta.id, 18)}<span class="text-[10px] font-medium">${meta.label}</span>`;
+      });
+      $('mainScroll').scrollTop = 0;
+      if (id === 'radar') { renderRadarView(); setTimeout(() => ECG.resize(), 30); }
+      if (id === 'timeline') { renderTimelineView(); APP.newBadgeIds.clear(); }
+      if (id === 'archive') renderArchive();
+      if (id === 'settings') renderSettings();
+    }
+
+    function renderSoundIcon() {
+      $('soundToggleTop').innerHTML = ic(APP.cfg.sound ? 'soundOn' : 'soundOff', 15);
+      $('soundToggleTop').style.opacity = APP.cfg.sound ? '1' : '0.45';
+    }
+
+    function toggleTimeMode() {
+      SFX.tap();
+      APP.cfg.realTimeLock = !APP.cfg.realTimeLock;
+      saveCfg();
+      updateEnginePills();
+      computeUnlockedSlots(false);
+      renderRadarView();
+      if (APP.tab === 'timeline') renderTimelineView();
+      showToast(APP.cfg.realTimeLock ? '已切回「实时同步」' : '已开启「今日全览」', APP.cfg.realTimeLock ? '未到钟点的行程将自动锁定待机' : '今日全部 7 段轨迹已暂时开放预览');
+    }
+
+    function bindEvents() {
+      document.querySelectorAll('.nav-item').forEach(b => b.onclick = () => switchTab(b.dataset.nav));
+      $('modeToggleBtn').onclick = toggleTimeMode;
+      $('setModeBtn').onclick = toggleTimeMode;
+
+      const toggleSound = () => {
+        APP.cfg.sound = !APP.cfg.sound; saveCfg(); renderSoundIcon();
+        if (APP.cfg.sound) SFX.tap();
+        if (APP.tab === 'settings') renderSettings();
+      };
+      $('soundToggleTop').onclick = toggleSound;
+      $('setSoundBtn').onclick = toggleSound;
+
+      $('catchupViewBtn').onclick = () => { $('catchupBanner').classList.add('hidden'); switchTab('timeline'); };
+      $('catchupCloseBtn').onclick = () => { SFX.tap(); $('catchupBanner').classList.add('hidden'); };
+
+      // 雷达光点点击
+      $('radarSvg').onclick = e => {
+        const g = e.target.closest('[data-bidx]'); if (!g) return;
+        SFX.tap();
+        APP.selectedBlipIdx = Number(g.dataset.bidx);
+        const cur = getActiveSlot().blips[APP.selectedBlipIdx];
+        if (cur && cur.type === 'rival') unlockEgg('zero_wave');
+        if (cur && cur.type === 'anchor') triggerHeartRate(Math.max(APP.currentBpm, getActiveSlot().baseBpm + 12), '', '心动', 4);
+        renderRadarView();
+      };
+
+      // 5 个远程查岗快捷指令
+      $('view-radar').onclick = e => {
+        const b = e.target.closest('button[data-cmd]');
+        if (b) executeInteraction(b.dataset.cmd, true);
+      };
+
+      // 自定义加密短讯发送
+      $('watchForm').onsubmit = e => {
+        e.preventDefault();
+        const v = $('watchInp').value.trim(); if (!v) return;
+        $('watchInp').value = ''; $('watchInp').blur();
+        executeInteraction(v, false);
+      };
+
+      // 语音条全局托管点击
+      $('mainScroll').addEventListener('click', e => {
+        const vb = e.target.closest('button[data-vuid]');
+        if (vb) playVoice(vb.dataset.vuid, vb.dataset.vtxt, vb.dataset.vuid.startsWith('tl_'));
+      });
+
+      // 设置页 AI 配置事件
+      $('aiSwitchBtn').onclick = () => {
+        SFX.tap(); APP.cfg.aiEnabled = !APP.cfg.aiEnabled; saveCfg();
+        loadTodaySchedule(); computeUnlockedSlots(false); renderSettings();
+        showToast(APP.cfg.aiEnabled ? 'Gemini AI 进阶引擎已开启' : '已切回本地七天实时引擎', APP.cfg.apiKey ? '后续查岗将使用 AI 动态回复' : '请先在下方填入免费 API Key');
+      };
+      $('toggleKeyEye').onclick = () => {
+        const i = $('apiKeyInp');
+        const show = i.type === 'password';
+        i.type = show ? 'text' : 'password';
+        $('toggleKeyEye').textContent = show ? '隐藏' : '显示';
+      };
+      $('modelSelect').onchange = e => {
+        APP.cfg.model = e.target.value;
+        $('customModelWrap').classList.toggle('hidden', APP.cfg.model !== 'custom');
+      };
+      $('saveApiBtn').onclick = () => {
+        SFX.tap();
+        APP.cfg.apiKey = $('apiKeyInp').value.trim();
+        APP.cfg.model = $('modelSelect').value;
+        APP.cfg.customModel = $('customModelInp').value.trim();
+        APP.cfg.baseUrl = $('baseUrlInp').value.trim() || 'https://generativelanguage.googleapis.com';
+        saveCfg(); updateEnginePills();
+        $('apiStatusMsg').innerHTML = '<span class="text-[#f1da93]">✓ 配置已保存在本机 localStorage。</span>';
+        showToast('API 配置已保存', APP.cfg.aiEnabled ? 'AI 动态引擎已就绪' : '开启上方开关即可启用 AI 引擎');
+      };
+      $('testApiBtn').onclick = () => {
+        APP.cfg.apiKey = $('apiKeyInp').value.trim();
+        APP.cfg.model = $('modelSelect').value;
+        APP.cfg.customModel = $('customModelInp').value.trim();
+        APP.cfg.baseUrl = $('baseUrlInp').value.trim() || 'https://generativelanguage.googleapis.com';
+        saveCfg(); testApiConnection();
+      };
+      $('regenAiBtn').onclick = () => {
+        APP.cfg.apiKey = $('apiKeyInp').value.trim();
+        APP.cfg.aiEnabled = true; saveCfg(); renderSettings();
+        generateDailyAiSchedule(false);
+      };
+
+      // 两步安全重置（无 confirm()）
+      $('resetBtn').onclick = () => {
+        SFX.tap();
+        if (!APP.resetArmed) {
+          APP.resetArmed = true;
+          $('resetBtn').textContent = '再次点击确认清空所有记录（保留 API 密钥）';
+          setTimeout(() => { APP.resetArmed = false; if ($('resetBtn')) $('resetBtn').textContent = '重置所有本地缓存与记录'; }, 4000);
+          return;
+        }
+        APP.resetArmed = false;
+        localStorage.removeItem(LS.MEM);
+        localStorage.removeItem(LS.VISIT);
+        localStorage.removeItem(LS.STATE);
+        localStorage.removeItem(LS.AI_PREFIX + APP.today);
+        APP.mem = { lastDate: '', yesterday: { jealous: 0, baba: 0, offline: 0, lastNote: '' }, today: { date: APP.today, jealous: 0, baba: 0, offline: 0, lastNote: '' } };
+        initDayState();
+        loadTodaySchedule();
+        computeUnlockedSlots(false);
+        renderSettings();
+        $('resetBtn').textContent = '重置所有本地缓存与记录';
+        showToast('本地互动记录已重置', '你的 API 密钥配置已安全保留');
+      };
+    }
+
+    window.onload = function () {
+      initMemoryRollover();
+      initDayState();
+      loadTodaySchedule();
+      renderSoundIcon();
+      bindEvents();
+      computeUnlockedSlots(true);
+      APP.currentBpm = getActiveSlot().baseBpm;
+      APP.targetBpm = getActiveSlot().baseBpm;
+      tickClock();
+      setInterval(tickClock, 1000);
+      switchTab('radar');
+      ECG.init();
+
+      // 若已开启 AI 引擎且今日尚未生成 AI 日程，静默自动生成今日 24H 动态行程
+      if (APP.cfg.aiEnabled && APP.cfg.apiKey.trim() && APP.scheduleSource !== 'ai') {
+        generateDailyAiSchedule(true);
+      }
+    };
+  </script>
+</body>
+</html>
